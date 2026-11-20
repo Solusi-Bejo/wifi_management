@@ -53,10 +53,8 @@ routers nearby broadcast the same SSID.
 
 Add the dependency:
 
-```yaml
-dependencies:
-  wifi_management:
-    git: https://github.com/Solusi-Bejo/wifi_management
+```
+flutter pub add wifi_management
 ```
 
 Do the [platform setup](#setup), then:

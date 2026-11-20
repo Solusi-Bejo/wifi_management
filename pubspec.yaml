@@ -3,7 +3,7 @@ description: >-
   Pin an Android device to one exact Wi-Fi router (SSID + BSSID): scan, join,
   verify the BSSID, bind the app's traffic, remember it and reconnect with
   backoff. Best-effort join + BSSID check on iOS.
-version: 0.2.0
+version: 0.2.1
 homepage: https://github.com/Solusi-Bejo/wifi_management
 repository: https://github.com/Solusi-Bejo/wifi_management
 issue_tracker: https://github.com/Solusi-Bejo/wifi_management/issues

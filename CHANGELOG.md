@@ -1,3 +1,7 @@
+## 0.2.1
+
+* README: install from pub.dev with `flutter pub add wifi_management`.
+
 ## 0.2.0
 
 * **Breaking:** Dart API renamed and split into domain / data / presentation
