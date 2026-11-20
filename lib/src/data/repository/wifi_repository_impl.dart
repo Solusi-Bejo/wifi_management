@@ -1,3 +1,4 @@
+import '../../domain/entity/wifi_access_point.dart';
 import '../../domain/entity/wifi_capabilities.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_connect_result.dart';
@@ -35,6 +36,9 @@ class WifiRepositoryImpl implements WifiRepository {
   Future<void> disconnect() => _platform.disconnect();
 
   @override
+  Future<WifiAccessPoint?> currentNetwork() => _platform.currentNetwork();
+
+  @override
   Future<WifiForgetResult> forgetSystemNetwork(String ssid) =>
       _platform.forgetSystemNetwork(ssid);
 
@@ -45,5 +49,6 @@ class WifiRepositoryImpl implements WifiRepository {
   Future<void> openSettings(WifiSettingsTarget target) => switch (target) {
     WifiSettingsTarget.location => _platform.openLocationSettings(),
     WifiSettingsTarget.app => _platform.openAppSettings(),
+    WifiSettingsTarget.wifi => _platform.openWifiSettings(),
   };
 }

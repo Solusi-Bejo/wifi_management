@@ -16,6 +16,12 @@ enum WifiFailure {
   /// under Settings > Apps > Special app access > Wi-Fi control, then retry.
   approvalDenied('approval_denied'),
 
+  /// Android, regular app: the device is on another Wi-Fi the user saved, and
+  /// Android does not move it to an app's suggestion. Switch to the router in
+  /// the Wi-Fi settings ([WifiSettingsTarget.wifi]); as Device Owner the
+  /// plugin switches by itself.
+  connectedElsewhere('connected_elsewhere'),
+
   /// No answer from the device within the Dart-side deadline.
   timeout('timeout'),
   bindFailed('bind_failed'),

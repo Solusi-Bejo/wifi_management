@@ -58,5 +58,6 @@ extension WifiConfigRequestMapper on WifiConfig {
     bssid: WifiConfig.normalizeBssid(bssid),
     security: security.code,
     password: password,
+    hidden: hidden,
   );
 }

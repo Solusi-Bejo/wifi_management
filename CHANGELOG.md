@@ -1,3 +1,12 @@
+## 0.5.0
+
+* **Hidden SSIDs and manual entry.** `WifiConfig.hidden` (stored, defaults to
+  false for older entries) makes Android and iOS probe for an SSID that is not
+  broadcast. `WifiConfig.bssid` may be empty: the first join to that SSID locks
+  whichever BSSID it lands on, and `WifiManagement` stores the config with it.
+  `WifiConfig.isValidBssid` checks typed input (`:` or `-` separators).
+  `PlatformConnectRequest` gains `hidden`.
+  
 ## 0.4.0
 
 * **Breaking (Android, regular app): joins through a network suggestion, not
@@ -19,6 +28,16 @@
   attempt starts, so "connecting" never shows a stale error.
 * When the device is already on exactly the requested SSID + BSSID, `connect`
   uses that connection (verify, bind, watch for loss) and changes nothing.
+* **Device already on another Wi-Fi** (regular app): Android does not move the
+  device from a network the user saved to an app's suggestion, so such a join
+  used to wait 60 s and end in `bssidMismatch`. It now fails at once with the
+  new `WifiFailure.connectedElsewhere`; the user switches in the Wi-Fi picker
+  (`WifiSettingsTarget.wifi`, an in-app panel on Android) and connects again.
+  A network of this app's own suggestion is still replaced as before.
+* New: `GetCurrentWifi` / `WifiRepository.currentNetwork()` /
+  `WifiManagementPlatform.currentNetwork()` report the Wi-Fi the device itself
+  is on, and `WifiSettingsTarget.wifi` opens the system Wi-Fi picker.
+  **Breaking** for custom `WifiRepository` / platform implementations.
 * **Breaking:** new `WifiFailure.approvalDenied` (`approval_denied`): the user
   declined the app's Wi-Fi suggestions. Exhaustive `switch`es need the case.
 * **Breaking:** `WifiManagementDeviceAdminReceiver` and

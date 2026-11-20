@@ -82,7 +82,8 @@ class PigeonWifiManagement extends WifiManagementPlatform {
     WifiNetworkEventType.connecting => null,
     WifiNetworkEventType.connected =>
       event.bssid != null &&
-              WifiConfig.normalizeBssid(event.bssid!) == _expectedBssid
+              (_expectedBssid == null ||
+                  WifiConfig.normalizeBssid(event.bssid!) == _expectedBssid)
           ? WifiConnectResult.connected(event.bssid!)
           : const WifiConnectResult.failed(WifiFailure.bssidMismatch),
     WifiNetworkEventType.lost || WifiNetworkEventType.unavailable =>
@@ -142,7 +143,8 @@ class PigeonWifiManagement extends WifiManagementPlatform {
 
     final requestId = ++_requestId;
     final request = config.asRequest(requestId);
-    _expectedBssid = request.bssid;
+    // Empty: no BSSID locked yet, the first one joined is accepted.
+    _expectedBssid = request.bssid.isEmpty ? null : request.bssid;
     final completer = _pending = Completer<WifiConnectResult>();
     try {
       await _api.connect(request);
@@ -186,6 +188,17 @@ class PigeonWifiManagement extends WifiManagementPlatform {
   Future<WifiForgetResult> forgetSystemNetwork(String ssid) async {
     if (!_isHostSupported) return WifiForgetResult.unsupported;
     return WifiForgetResult.fromCode(await _api.forgetSystemNetwork(ssid));
+  }
+
+  @override
+  Future<WifiAccessPoint?> currentNetwork() async {
+    if (!_isHostSupported) return null;
+    return (await _api.currentNetwork())?.asEntity;
+  }
+
+  @override
+  Future<void> openWifiSettings() async {
+    if (_isHostSupported) await _api.openWifiSettings();
   }
 
   @override

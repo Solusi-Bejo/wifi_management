@@ -74,13 +74,19 @@ class PlatformConnectRequest {
     required this.bssid,
     required this.security,
     required this.password,
+    required this.hidden,
   });
 
   int requestId;
   String ssid;
+
+  /// Empty: not locked yet; join [ssid] and report the BSSID it lands on.
   String bssid;
   String security;
   String password;
+
+  /// The SSID is not broadcast; probe for it by name.
+  bool hidden;
 }
 
 /// Status change of the request made by the latest `connect`.
@@ -125,7 +131,13 @@ abstract class WifiManagementHostApi {
   /// `not_device_owner`, `unsupported` or `failed`.
   String forgetSystemNetwork(String ssid);
 
+  /// The Wi-Fi the device itself is on now; null when it is on none or the
+  /// SSID/BSSID cannot be read (permission, Location Services).
+  @async
+  PlatformAccessPoint? currentNetwork();
+
   void openLocationSettings();
+  void openWifiSettings();
 
   void openAppSettings();
 }

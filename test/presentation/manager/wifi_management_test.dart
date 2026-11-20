@@ -112,6 +112,32 @@ void main() {
     await manager.dispose();
   });
 
+  test(
+    'a router without BSSID is stored locked to the one first joined',
+    () async {
+      platform.connectResults.add(WifiConnectResult.connected(routerB.bssid));
+      final manager = buildManager(platform, store);
+      await manager.start();
+
+      await manager.connectNew(
+        const WifiConfig(
+          ssid: 'SSID001',
+          bssid: '',
+          security: WifiSecurity.wpa2,
+          password: 'secret123',
+          hidden: true,
+        ),
+      );
+
+      expect(platform.connectCalls.single.bssid, '');
+      expect(store.stored?.bssid, routerB.bssid);
+      expect(store.stored?.hidden, isTrue);
+      expect(manager.state.config?.bssid, routerB.bssid);
+      expect(manager.state.isVerified, isTrue);
+      await manager.dispose();
+    },
+  );
+
   test('a new attempt does not show the previous failure', () async {
     // The first try at a new router fails (e.g. Android had not joined it in
     // time); the next try must read "connecting", not "connecting" + error.

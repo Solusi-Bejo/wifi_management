@@ -91,6 +91,15 @@ class FakeWifiPlatform extends WifiManagementPlatform
 
   @override
   Future<void> openAppSettings() async => openedSettings.add('app');
+
+  @override
+  Future<void> openWifiSettings() async => openedSettings.add('wifi');
+
+  /// What [currentNetwork] answers: the device's own Wi-Fi.
+  WifiAccessPoint? current;
+
+  @override
+  Future<WifiAccessPoint?> currentNetwork() async => current;
 }
 
 class FakeWifiConfigRepository implements WifiConfigRepository {

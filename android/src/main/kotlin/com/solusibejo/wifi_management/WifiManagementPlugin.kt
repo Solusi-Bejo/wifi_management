@@ -209,6 +209,36 @@ class WifiManagementPlugin :
     override fun openLocationSettings() =
         openSettings(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
 
+    /** The system Wi-Fi picker: a panel over the app on API 29+. */
+    override fun openWifiSettings() = openSettings(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            Intent(Settings.Panel.ACTION_WIFI)
+        } else {
+            Intent(Settings.ACTION_WIFI_SETTINGS)
+        },
+    )
+
+    /**
+     * The device's own Wi-Fi, or null when it is on none or the SSID/BSSID
+     * is unreadable (no location permission, Location Services off).
+     */
+    override fun currentNetwork(callback: (Result<PlatformAccessPoint?>) -> Unit) =
+        callback(Result.success(readCurrentNetwork()))
+
+    @Suppress("DEPRECATION")
+    private fun readCurrentNetwork(): PlatformAccessPoint? {
+        if (!isSupported() || precondition() != null) return null
+        val info = wifiManager.connectionInfo ?: return null
+        val bssid = knownBssid(info.bssid) ?: return null
+        val ssid = readableSsid(info.ssid) ?: return null
+        val security = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            securityOfType(info.currentSecurityType)
+        } else {
+            "unsupported"
+        }
+        return PlatformAccessPoint(ssid = ssid, bssid = bssid, rssi = info.rssi.toLong(), security = security)
+    }
+
     override fun openAppSettings() = openSettings(
         Intent(
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -315,7 +345,7 @@ class WifiManagementPlugin :
         }
 
         if (isDeviceOwner()) {
-            connectSystem(requestId, ssid, bssid, request.security, request.password)
+            connectSystem(requestId, ssid, bssid, request.security, request.password, request.hidden)
             return
         }
 
@@ -327,13 +357,21 @@ class WifiManagementPlugin :
             return
         }
 
+        // On another Wi-Fi the user saved: Android does not move the device
+        // from it to an app's suggestion, so waiting would only end in a
+        // mismatch. Say so at once; the user switches in the Wi-Fi settings.
+        if (isOnOtherNetwork(ssid, bssid)) {
+            emit(requestId, "error", ssid = ssid, failure = "connected_elsewhere")
+            return
+        }
+
         // Parked Android 7–9 path:
         // if (!usesSpecifier()) {
         //     connectLegacy(requestId, ssid, bssid, request.security, request.password)
         //     return
         // }
 
-        connectSuggestion(requestId, ssid, bssid, request.security, request.password)
+        connectSuggestion(requestId, ssid, bssid, request.security, request.password, request.hidden)
 
         // Parked app-only WifiNetworkSpecifier path (local-only, no internet).
         // Android makes the specifier network local-only: no INTERNET
@@ -573,12 +611,15 @@ class WifiManagementPlugin :
         bssid: String,
         security: String,
         password: String,
+        hidden: Boolean,
     ) {
         val suggestion = try {
             WifiNetworkSuggestion.Builder()
                 .setSsid(ssid)
-                .setBssid(MacAddress.fromString(bssid))
+                .setIsHiddenSsid(hidden)
                 .apply {
+                    // Empty: not locked yet; the first BSSID joined is kept.
+                    if (bssid.isNotEmpty()) setBssid(MacAddress.fromString(bssid))
                     when (security) {
                         "wpa2" -> setWpa2Passphrase(password)
                         "wpa3" -> setWpa3Passphrase(password)
@@ -757,10 +798,13 @@ class WifiManagementPlugin :
         bssid: String,
         security: String,
         password: String,
+        hidden: Boolean,
     ): WifiConfiguration? = WifiConfiguration().apply {
         SSID = "\"$ssid\""
-        // Restricts association to this one access point.
-        BSSID = bssid
+        // Restricts association to this one access point; empty: any, until
+        // the first join locks one.
+        if (bssid.isNotEmpty()) BSSID = bssid
+        hiddenSSID = hidden
         val modern = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
         when (security) {
             "wpa2" -> {
@@ -796,8 +840,9 @@ class WifiManagementPlugin :
         bssid: String,
         security: String,
         password: String,
+        hidden: Boolean,
     ) {
-        val config = systemConfig(ssid, bssid, security, password)
+        val config = systemConfig(ssid, bssid, security, password, hidden)
         if (config == null) {
             emit(requestId, "error", failure = "invalid_config")
             return
@@ -832,6 +877,23 @@ class WifiManagementPlugin :
      * Needs the location permission and Location Services, which [connect]
      * has already checked.
      */
+    /**
+     * True when the device is on a Wi-Fi other than [ssid]/[bssid] that this
+     * app did not suggest. A network of this app's own suggestion is fine:
+     * replacing the suggestion moves the device off it.
+     */
+    @Suppress("DEPRECATION")
+    private fun isOnOtherNetwork(ssid: String, bssid: String): Boolean {
+        val info = wifiManager.connectionInfo ?: return false
+        val mine = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching { wifiManager.networkSuggestions.mapNotNull { it.ssid } }
+                .getOrDefault(emptyList())
+        } else {
+            emptyList() // API 29 cannot list them
+        }
+        return isElsewhere(info.ssid, info.bssid, ssid, bssid, mine)
+    }
+
     @Suppress("DEPRECATION")
     private fun isJoined(ssid: String, bssid: String): Boolean {
         val info = wifiManager.connectionInfo ?: return false
@@ -887,7 +949,7 @@ class WifiManagementPlugin :
             if (networkCallback !== callback) return@Runnable
             val actual = currentBssid(null)
             release()
-            if (actual != null && actual != bssid) {
+            if (bssid.isNotEmpty() && actual != null && actual != bssid) {
                 emit(requestId, "error", ssid = ssid, bssid = actual, failure = "bssid_mismatch")
             } else {
                 emit(requestId, "unavailable", ssid = ssid, bssid = bssid)
@@ -895,6 +957,15 @@ class WifiManagementPlugin :
         }
         systemTimeout = timeout
         mainHandler.postDelayed(timeout, REQUEST_TIMEOUT_MS.toLong())
+    }
+
+    /** The joined SSID: from [caps] on API 31+, else the connection info. */
+    private fun currentSsid(caps: NetworkCapabilities?): String? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && caps != null) {
+            return readableSsid((caps.transportInfo as? WifiInfo)?.ssid)
+        }
+        @Suppress("DEPRECATION")
+        return readableSsid(wifiManager.connectionInfo?.ssid)
     }
 
     /** The joined BSSID: from [caps] on API 31+, else the connection info. */
@@ -916,7 +987,9 @@ class WifiManagementPlugin :
     private inner class SystemNetworkCallback : ConnectivityManager.NetworkCallback {
         private val requestId: Long
         private val ssid: String
-        private val bssid: String
+
+        /** Empty until the first join locks one (see [check]). */
+        private var bssid: String
 
         // NetworkCallback(int flags) only exists from API 31.
         constructor(requestId: Long, ssid: String, bssid: String) : super() {
@@ -958,9 +1031,13 @@ class WifiManagementPlugin :
                 }
                 return
             }
-            if (actual != bssid) return
+            val onTarget =
+                if (bssid.isEmpty()) currentSsid(caps) == ssid else actual == bssid
+            if (!onTarget) return
             if (connectivityManager.bindProcessToNetwork(network)) {
                 verifiedNetwork = network
+                // Nothing locked yet: this BSSID is the router from now on.
+                if (bssid.isEmpty()) bssid = actual
                 systemTimeout?.let(mainHandler::removeCallbacks)
                 systemTimeout = null
                 stopSuggestionWait()
@@ -1186,7 +1263,8 @@ class WifiManagementPlugin :
 
         /**
          * Whether the connection info's [rawSsid] (quoted by Android) and
-         * [rawBssid] name the requested [ssid] and lower-case [bssid]. A
+         * [rawBssid] name the requested [ssid] and lower-case [bssid]. An
+         * empty [bssid] (none locked yet) matches any readable one; a
          * redacted BSSID never matches.
          */
         internal fun isSameAccessPoint(
@@ -1194,8 +1272,10 @@ class WifiManagementPlugin :
             rawBssid: String?,
             ssid: String,
             bssid: String,
-        ): Boolean = knownBssid(rawBssid) == bssid &&
-            rawSsid?.removeSurrounding("\"") == ssid
+        ): Boolean {
+            val current = knownBssid(rawBssid) ?: return false
+            return (bssid.isEmpty() || current == bssid) && readableSsid(rawSsid) == ssid
+        }
 
         /** First scan nudge after a suggestion is placed, then the interval. */
         private const val SCAN_NUDGE_FIRST_MS = 3_000L
@@ -1227,6 +1307,39 @@ class WifiManagementPlugin :
             // A compile-time constant (API 33); older devices never return it.
             WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_RESTRICTED_BY_ADMIN -> "unsupported"
             else -> "invalid_config"
+        }
+
+        /**
+         * Whether the connection info ([rawSsid], [rawBssid]) shows the device
+         * on a readable network that is neither the requested one nor one of
+         * this app's suggestions ([mySuggestionSsids]).
+         */
+        internal fun isElsewhere(
+            rawSsid: String?,
+            rawBssid: String?,
+            ssid: String,
+            bssid: String,
+            mySuggestionSsids: List<String>,
+        ): Boolean {
+            val currentBssid = knownBssid(rawBssid) ?: return false
+            val currentSsid = readableSsid(rawSsid) ?: return false
+            if (currentSsid == ssid && (bssid.isEmpty() || currentBssid == bssid)) return false
+            return currentSsid !in mySuggestionSsids
+        }
+
+        /** The SSID without Android's quotes; null when unknown or hidden. */
+        internal fun readableSsid(raw: String?): String? =
+            raw?.removeSurrounding("\"")
+                ?.takeUnless { it.isBlank() || it == UNKNOWN_SSID }
+
+        private const val UNKNOWN_SSID = "<unknown ssid>"
+
+        /** Security code for a `WifiInfo.currentSecurityType` (API 31). */
+        internal fun securityOfType(type: Int): String = when (type) {
+            WifiInfo.SECURITY_TYPE_OPEN -> "open"
+            WifiInfo.SECURITY_TYPE_PSK -> "wpa2"
+            WifiInfo.SECURITY_TYPE_SAE -> "wpa3"
+            else -> "unsupported"
         }
 
         /** Null for an empty or redacted (`02:00:00:00:00:00`) BSSID. */

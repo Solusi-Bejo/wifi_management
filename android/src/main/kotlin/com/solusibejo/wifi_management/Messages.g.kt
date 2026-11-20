@@ -390,9 +390,12 @@ data class PlatformScanResult (
 data class PlatformConnectRequest (
   val requestId: Long,
   val ssid: String,
+  /** Empty: not locked yet; join [ssid] and report the BSSID it lands on. */
   val bssid: String,
   val security: String,
-  val password: String
+  val password: String,
+  /** The SSID is not broadcast; probe for it by name. */
+  val hidden: Boolean
 )
  {
   companion object {
@@ -402,7 +405,8 @@ data class PlatformConnectRequest (
       val bssid = pigeonVar_list[2] as String
       val security = pigeonVar_list[3] as String
       val password = pigeonVar_list[4] as String
-      return PlatformConnectRequest(requestId, ssid, bssid, security, password)
+      val hidden = pigeonVar_list[5] as Boolean
+      return PlatformConnectRequest(requestId, ssid, bssid, security, password, hidden)
     }
   }
   fun toList(): List<Any?> {
@@ -412,6 +416,7 @@ data class PlatformConnectRequest (
       bssid,
       security,
       password,
+      hidden,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -422,7 +427,7 @@ data class PlatformConnectRequest (
       return true
     }
     val other = other as PlatformConnectRequest
-    return MessagesPigeonUtils.deepEquals(this.requestId, other.requestId) && MessagesPigeonUtils.deepEquals(this.ssid, other.ssid) && MessagesPigeonUtils.deepEquals(this.bssid, other.bssid) && MessagesPigeonUtils.deepEquals(this.security, other.security) && MessagesPigeonUtils.deepEquals(this.password, other.password)
+    return MessagesPigeonUtils.deepEquals(this.requestId, other.requestId) && MessagesPigeonUtils.deepEquals(this.ssid, other.ssid) && MessagesPigeonUtils.deepEquals(this.bssid, other.bssid) && MessagesPigeonUtils.deepEquals(this.security, other.security) && MessagesPigeonUtils.deepEquals(this.password, other.password) && MessagesPigeonUtils.deepEquals(this.hidden, other.hidden)
   }
 
   override fun hashCode(): Int {
@@ -432,10 +437,11 @@ data class PlatformConnectRequest (
     result = 31 * result + MessagesPigeonUtils.deepHash(this.bssid)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.security)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.password)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.hidden)
     return result
   }
   override fun toString(): String {
-    return "PlatformConnectRequest(requestId=$requestId, ssid=$ssid, bssid=$bssid, security=$security, password=$password)"
+    return "PlatformConnectRequest(requestId=$requestId, ssid=$ssid, bssid=$bssid, security=$security, password=$password, hidden=$hidden)"
   }
 }
 
@@ -583,7 +589,13 @@ interface WifiManagementHostApi {
    * `not_device_owner`, `unsupported` or `failed`.
    */
   fun forgetSystemNetwork(ssid: String): String
+  /**
+   * The Wi-Fi the device itself is on now; null when it is on none or the
+   * SSID/BSSID cannot be read (permission, Location Services).
+   */
+  fun currentNetwork(callback: (Result<PlatformAccessPoint?>) -> Unit)
   fun openLocationSettings()
+  fun openWifiSettings()
   fun openAppSettings()
 
   companion object {
@@ -713,11 +725,45 @@ interface WifiManagementHostApi {
         }
       }
       run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.currentNetwork$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.currentNetwork{ result: Result<PlatformAccessPoint?> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(MessagesPigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(MessagesPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
         val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openLocationSettings$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             val wrapped: List<Any?> = try {
               api.openLocationSettings()
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openWifiSettings$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              api.openWifiSettings()
               listOf(null)
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)

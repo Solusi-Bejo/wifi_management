@@ -219,9 +219,13 @@ class WifiManagement {
 
     switch (result) {
       case WifiConnected(:final actualBssid):
+        // A config without a BSSID locks the one this first join landed on.
+        final pinned = target.isBssidLocked
+            ? target
+            : target.copyWith(bssid: WifiConfig.normalizeBssid(actualBssid));
         if (save) {
           try {
-            await _saveWifiConfig(target);
+            await _saveWifiConfig(pinned);
           } catch (_) {
             if (_disposed || generation != _generation) return;
             await _release();
@@ -243,7 +247,7 @@ class WifiManagement {
         _emit(
           WifiManagementState(
             phase: WifiManagementPhase.connected,
-            config: target,
+            config: pinned,
             actualBssid: actualBssid,
           ),
         );

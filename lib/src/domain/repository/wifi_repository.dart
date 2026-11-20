@@ -1,3 +1,4 @@
+import '../entity/wifi_access_point.dart';
 import '../entity/wifi_capabilities.dart';
 import '../entity/wifi_config.dart';
 import '../entity/wifi_connect_result.dart';
@@ -23,6 +24,10 @@ abstract interface class WifiRepository {
   Future<WifiConnectResult> connect(WifiConfig config);
 
   Future<void> disconnect();
+
+  /// The Wi-Fi the device itself is on now, or null when on none (or it
+  /// cannot be read).
+  Future<WifiAccessPoint?> currentNetwork();
 
   /// Removes [ssid] from the device's saved Wi-Fi networks, so the device
   /// itself stops joining it (Android: Device Owner only).

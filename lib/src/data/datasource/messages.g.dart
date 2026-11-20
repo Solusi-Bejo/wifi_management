@@ -326,20 +326,25 @@ class PlatformConnectRequest {
     required this.bssid,
     required this.security,
     required this.password,
+    required this.hidden,
   });
 
   int requestId;
 
   String ssid;
 
+  /// Empty: not locked yet; join [ssid] and report the BSSID it lands on.
   String bssid;
 
   String security;
 
   String password;
 
+  /// The SSID is not broadcast; probe for it by name.
+  bool hidden;
+
   List<Object?> _toList() {
-    return <Object?>[requestId, ssid, bssid, security, password];
+    return <Object?>[requestId, ssid, bssid, security, password, hidden];
   }
 
   Object encode() {
@@ -354,6 +359,7 @@ class PlatformConnectRequest {
       bssid: result[2]! as String,
       security: result[3]! as String,
       password: result[4]! as String,
+      hidden: result[5]! as bool,
     );
   }
 
@@ -370,7 +376,8 @@ class PlatformConnectRequest {
         _deepEquals(ssid, other.ssid) &&
         _deepEquals(bssid, other.bssid) &&
         _deepEquals(security, other.security) &&
-        _deepEquals(password, other.password);
+        _deepEquals(password, other.password) &&
+        _deepEquals(hidden, other.hidden);
   }
 
   @override
@@ -379,7 +386,7 @@ class PlatformConnectRequest {
 
   @override
   String toString() {
-    return 'PlatformConnectRequest(requestId: $requestId, ssid: $ssid, bssid: $bssid, security: $security, password: $password)';
+    return 'PlatformConnectRequest(requestId: $requestId, ssid: $ssid, bssid: $bssid, security: $security, password: $password, hidden: $hidden)';
   }
 }
 
@@ -662,9 +669,48 @@ class WifiManagementHostApi {
     return pigeonVar_replyValue! as String;
   }
 
+  /// The Wi-Fi the device itself is on now; null when it is on none or the
+  /// SSID/BSSID cannot be read (permission, Location Services).
+  Future<PlatformAccessPoint?> currentNetwork() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.wifi_management.WifiManagementHostApi.currentNetwork$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+    return pigeonVar_replyValue as PlatformAccessPoint?;
+  }
+
   Future<void> openLocationSettings() async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openLocationSettings$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<void> openWifiSettings() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openWifiSettings$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
