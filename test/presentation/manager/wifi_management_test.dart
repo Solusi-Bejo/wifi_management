@@ -112,6 +112,31 @@ void main() {
     await manager.dispose();
   });
 
+  test('a new attempt does not show the previous failure', () async {
+    // The first try at a new router fails (e.g. Android had not joined it in
+    // time); the next try must read "connecting", not "connecting" + error.
+    platform.connectResults.add(
+      const WifiConnectResult.failed(WifiFailure.unavailable),
+    );
+    final manager = buildManager(platform, store);
+    await manager.start();
+    await manager.connectNew(configFor(routerA));
+    expect(manager.state.failure, WifiFailure.unavailable);
+
+    final seen = <WifiManagementState>[];
+    final sub = manager.states.listen(seen.add);
+    await manager.connectNew(configFor(routerA));
+    await Future<void>.delayed(Duration.zero);
+
+    final connecting = seen.firstWhere(
+      (state) => state.phase == WifiManagementPhase.connecting,
+    );
+    expect(connecting.failure, isNull);
+    expect(manager.state.isVerified, isTrue);
+    await sub.cancel();
+    await manager.dispose();
+  });
+
   test('a lost link retries with backoff, one attempt at a time', () {
     fakeAsync((async) {
       store.stored = configFor(routerA);

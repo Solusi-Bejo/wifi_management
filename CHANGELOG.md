@@ -1,12 +1,32 @@
-## 0.3.2
+## 0.4.0
 
-* Android, regular app: when the device is already connected to exactly the
-  requested SSID + BSSID, `connect` now uses that connection (verify, bind,
-  watch for loss) instead of a `WifiNetworkSpecifier` request. The request
-  took the only Wi-Fi radio away from the device's own connection to rejoin
-  the same router app-only, so the whole device lost internet while the app
-  held it (seen on the emulator's `AndroidWifi`). A device on another router
-  still gets the specifier request.
+* **Breaking (Android, regular app): joins through a network suggestion, not
+  `WifiNetworkSpecifier`.** Android makes a specifier network local-only (no
+  internet capability, route or DNS), so an app that set up Wi-Fi this way
+  could reach neither the internet nor its API, and the device lost its own
+  connection meanwhile. The router is now this app's only
+  `WifiNetworkSuggestion`, locked to its BSSID: the device itself joins it,
+  with internet for every app, after a one-time approval dialog.
+  `forgetSystemNetwork` / `reset()` remove the suggestion and the device
+  disconnects, without Device Owner. The specifier path is kept in comments.
+* First join after the approval dialog no longer stalls until the deadline:
+  Android weighs a suggestion only at its next network selection, which on a
+  disconnected device can be minutes away. The plugin now re-adds the
+  suggestion as soon as the user approves (API 31+, which makes Android join
+  at once and restarts the 60 s deadline) and asks for a scan every 15 s while
+  waiting (all API levels).
+* `WifiManagementState` drops the previous attempt's `failure` when a new
+  attempt starts, so "connecting" never shows a stale error.
+* When the device is already on exactly the requested SSID + BSSID, `connect`
+  uses that connection (verify, bind, watch for loss) and changes nothing.
+* **Breaking:** new `WifiFailure.approvalDenied` (`approval_denied`): the user
+  declined the app's Wi-Fi suggestions. Exhaustive `switch`es need the case.
+* **Breaking:** `WifiManagementDeviceAdminReceiver` and
+  `@xml/wifi_management_device_admin` (0.3.1) are removed, so the plugin adds
+  no device admin to any app. The Device Owner path is unchanged: an app that
+  wants it declares its own `DeviceAdminReceiver` (see the README). Devices
+  provisioned with the removed component must be provisioned again.
+* Device Owner path unchanged otherwise.
 
 ## 0.3.1
 

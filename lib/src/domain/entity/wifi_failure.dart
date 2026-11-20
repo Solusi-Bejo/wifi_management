@@ -9,9 +9,12 @@ enum WifiFailure {
   /// The platform joined a router, but not the one requested.
   bssidMismatch('bssid_mismatch'),
 
-  /// The router was not found, the request timed out on the device, or the
-  /// user rejected the system approval dialog.
+  /// The router was not found, or the device did not join it in time.
   unavailable('unavailable'),
+
+  /// Android: the user declined this app's Wi-Fi suggestions. Allow them again
+  /// under Settings > Apps > Special app access > Wi-Fi control, then retry.
+  approvalDenied('approval_denied'),
 
   /// No answer from the device within the Dart-side deadline.
   timeout('timeout'),

@@ -39,9 +39,10 @@ routers nearby broadcast the same SSID.
 
 1. **Scan** (Android). `ScanWifi` returns one row per BSSID, strongest first,
    so routers that share an SSID stay separate.
-2. **Join one BSSID.** `connectNew(config)` asks Android for exactly that
-   SSID + BSSID with `WifiNetworkSpecifier`. iOS joins by SSID with
-   `NEHotspotConfiguration`.
+2. **Join one BSSID.** `connectNew(config)` gives Android exactly that
+   SSID + BSSID as the app's network suggestion (as Device Owner: a saved
+   network), and the device itself joins it, internet included. iOS joins by
+   SSID with `NEHotspotConfiguration`.
 3. **Verify and save.** The plugin reads the BSSID the device actually joined.
    A mismatch is released and reported as `WifiFailure.bssidMismatch`; a match
    is saved through your `WifiConfigRepository`.
@@ -78,7 +79,7 @@ The `example/` app scans, lets you pick a router, and shows the live state.
 | | Android 10+ (API 29) | iOS 15+ | Android < 10, other platforms |
 |---|---|---|---|
 | Scan nearby routers (one entry per BSSID) | ✅ | ❌ (no public API) | ❌ |
-| Join only the requested BSSID | ✅ `WifiNetworkSpecifier` | ❌ joins by SSID | ❌ |
+| Join only the requested BSSID, as the device's own Wi-Fi (with internet) | ✅ `WifiNetworkSuggestion` (Device Owner: saved network) | ❌ joins by SSID | ❌ |
 | Verify the joined BSSID | ✅ | ✅ after the join; mismatch is reported and the configuration removed | ❌ |
 | Bind the app's traffic to that network | ✅ `bindProcessToNetwork` | ❌ | ❌ |
 | Detect a lost link | ✅ | ✅ (path monitor + polling) | ❌ |
@@ -100,14 +101,17 @@ Nothing to add: the plugin's manifest merges `ACCESS_WIFI_STATE`,
 `ACCESS_FINE_LOCATION` and `NEARBY_WIFI_DEVICES` into your app. Location
 Services must be on to scan and to read the joined BSSID.
 
-The first join to a router may show a system approval dialog.
+The first join shows Android's one-time dialog to allow the app's Wi-Fi
+suggestions; open the setup screen in the foreground so it is a dialog, not a
+notification. If the user declines, joins fail with
+`WifiFailure.approvalDenied` until they allow the app under Settings > Apps >
+Special app access > Wi-Fi control.
 
-**Device Owner (optional).** A regular app joins through an app-scoped
-`WifiNetworkSpecifier` request: only the app uses the router, and the
-device's saved Wi-Fi networks are never touched, so a router the user saved in
-Settings keeps the device on it after `reset()`. Since Android 10 only a
-Device Owner (or system) app may edit saved networks. As Device Owner the
-plugin instead:
+**Device Owner (optional).** A regular app joins through a network
+suggestion. Android ranks networks the user saved in Settings above it, and
+`reset()` cannot remove those, so the device may stay on (or prefer) such a
+network. Since Android 10 only a Device Owner (or system) app may edit saved
+networks. As Device Owner the plugin instead:
 
 | Action | Device's saved Wi-Fi networks |
 |---|---|
@@ -119,19 +123,30 @@ plugin instead:
 
 To get there:
 
-1. Register the plugin's admin receiver in your app's
-   `android/app/src/main/AndroidManifest.xml`, inside `<application>`. The
-   plugin does not declare it itself, so apps that skip this never appear as a
-   device admin.
+1. Give your app a device admin receiver. The plugin ships none, so apps that
+   do not need Device Owner never show up as a device admin.
+
+   ```kotlin
+   // android/app/src/main/kotlin/<your package>/AdminReceiver.kt
+   class AdminReceiver : android.app.admin.DeviceAdminReceiver()
+   ```
 
    ```xml
+   <!-- android/app/src/main/res/xml/device_admin.xml -->
+   <device-admin>
+       <uses-policies />
+   </device-admin>
+   ```
+
+   ```xml
+   <!-- AndroidManifest.xml, inside <application> -->
    <receiver
-       android:name="com.solusibejo.wifi_management.WifiManagementDeviceAdminReceiver"
+       android:name=".AdminReceiver"
        android:exported="true"
        android:permission="android.permission.BIND_DEVICE_ADMIN">
        <meta-data
            android:name="android.app.device_admin"
-           android:resource="@xml/wifi_management_device_admin"/>
+           android:resource="@xml/device_admin"/>
        <intent-filter>
            <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
        </intent-filter>
@@ -142,8 +157,11 @@ To get there:
    run
 
    ```sh
-   adb shell dpm set-device-owner <applicationId>/com.solusibejo.wifi_management.WifiManagementDeviceAdminReceiver
+   adb shell dpm set-device-owner <applicationId>/<applicationId>.AdminReceiver
    ```
+
+   The plugin only checks that your app is the Device Owner; the receiver
+   class is yours.
 
 Without it `reset()` returns `WifiForgetResult.notDeviceOwner`; tell the user
 to forget the network in Settings. A Device Owner app cannot be uninstalled
@@ -234,14 +252,19 @@ class MyConfigRepository implements WifiConfigRepository {
 
 - **Android process binding.** While connected, the whole app's traffic goes
   through the pinned network. If that router has no internet, cloud calls fail.
-- **Android request without internet capability.** The request drops
-  `NET_CAPABILITY_INTERNET` so the specifier matches before validation; the
-  binding still uses whatever the router provides.
 - **Already on the router.** When the device's own Wi-Fi is already on the
-  requested SSID + BSSID, the plugin binds to that connection instead of
-  making a specifier request. On single-radio devices such a request would
-  drop the device's connection (and its internet) to rejoin the same router
-  for the app only.
+  requested SSID + BSSID, the plugin binds to that connection and changes
+  nothing.
+- **First join after approval.** The plugin re-adds the suggestion when the
+  user approves it (Android 12+) and nudges scans while waiting, so the device
+  joins within seconds instead of at Android's next periodic scan.
+- **Suggestions are Android's call.** Android joins a suggestion when it
+  ranks best; a network the user saved can win. If the user disconnects from
+  the suggested network in the Wi-Fi picker, Android ignores it while it stays
+  in range. Not wanted? Use Device Owner.
+- **No `WifiNetworkSpecifier`.** Android makes those networks local-only (no
+  internet, route or DNS); the old path is parked in the Kotlin source for
+  apps that only need the router's LAN.
 - **One request at a time.** Every `connect` releases the previous request.
 - **iOS is best effort.** iOS can still pick another router with the same SSID;
   the plugin detects and reports it (`WifiFailure.bssidMismatch`) and retries,

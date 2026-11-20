@@ -20,7 +20,8 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiConfiguration // Device Owner system-network path
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
-import android.net.wifi.WifiNetworkSpecifier
+// import android.net.wifi.WifiNetworkSpecifier // parked app-only specifier path
+import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -36,10 +37,11 @@ import io.flutter.plugin.common.PluginRegistry
  * actually joined, and bind the whole process to that network.
  *
  * Android 10+ (API 29) only. Below API 29 the plugin reports `unsupported`.
- * - Regular app: a [WifiNetworkSpecifier] request (app-scoped); the device's
- *   saved Wi-Fi networks are untouched. If the device is already on exactly
- *   that SSID + BSSID, its own connection is used instead, so the request
- *   does not tear it down.
+ * - Regular app: the router becomes this app's network suggestion, locked to
+ *   its BSSID, so the device itself joins it with internet (after a one-time
+ *   approval dialog). If the device is already on exactly that SSID + BSSID,
+ *   that connection is used as is. The app-only `WifiNetworkSpecifier` path
+ *   is parked in comments: Android gives it no internet.
  * - Device Owner: the router is written to the device's saved Wi-Fi networks
  *   with its BSSID locked and made the only enabled one, so the device itself
  *   joins it; [release] disables it and [forgetSystemNetwork] removes it.
@@ -74,6 +76,14 @@ class WifiManagementPlugin :
     // Device Owner path: the saved system network in use, and its deadline.
     private var systemNetworkId: Int? = null
     private var systemTimeout: Runnable? = null
+
+    // Suggestion path: the suggestion waiting for Android to join it, the
+    // approval listener (a SuggestionUserApprovalStatusListener, API 31+;
+    // typed Any so older devices never load the class) and the scan nudge.
+    private var pendingSuggestion: WifiNetworkSuggestion? = null
+    private var approvalListener: Any? = null
+    private var approvalRetried = false
+    private var scanNudge: Runnable? = null
 
     // Parked Android 7–9 path: the system network this plugin added, and its deadline.
     // private var legacyNetworkId: Int? = null
@@ -323,6 +333,17 @@ class WifiManagementPlugin :
         //     return
         // }
 
+        connectSuggestion(requestId, ssid, bssid, request.security, request.password)
+
+        // Parked app-only WifiNetworkSpecifier path (local-only, no internet).
+        // Android makes the specifier network local-only: no INTERNET
+        // capability, no route, no DNS, and it takes the only radio away from
+        // the device's own connection. The PID needs the cloud API through the
+        // router, so the suggestion above replaced it. To bring it back for an
+        // app that only talks to the router's LAN, uncomment this block, its
+        // import, and PinnedNetworkCallback, and call it instead.
+        /*
+
         val specifier = try {
             WifiNetworkSpecifier.Builder()
                 .setSsid(ssid)
@@ -362,23 +383,25 @@ class WifiManagementPlugin :
         networkCallback = callback
         emit(requestId, "connecting", ssid = ssid, bssid = bssid)
         connectivityManager.requestNetwork(networkRequest, callback, REQUEST_TIMEOUT_MS)
+        */
     }
 
     override fun disconnect() = release()
 
     /**
-     * Removes every saved system network named [ssid]. Releasing the
-     * specifier request alone does not help when the same router is also
-     * saved in Settings: the device rejoins it by itself.
+     * Makes the device itself stop joining [ssid].
      *
-     * `getConfiguredNetworks` and `removeNetwork` always fail for apps that
-     * target API 29+, except for Device Owner, Profile Owner and system apps,
-     * so anything else gets `not_device_owner` without trying.
+     * - Regular app: removes this app's network suggestions for it; Android
+     *   disconnects at once if one of them carried the connection. A network
+     *   the user saved in Settings stays (only `not_device_owner` says so).
+     * - Device Owner: removes every saved system network named [ssid].
+     *   `getConfiguredNetworks` and `removeNetwork` always fail for apps that
+     *   target API 29+, except for Device Owner, Profile Owner and system apps.
      */
     @Suppress("DEPRECATION")
     override fun forgetSystemNetwork(ssid: String): String {
         if (!::wifiManager.isInitialized) return "unsupported"
-        if (!isDeviceOwner()) return "not_device_owner"
+        if (!isDeviceOwner()) return forgetSuggestion(ssid)
         return try {
             val saved = savedNetworks(ssid)
             if (saved.any { it.networkId == systemNetworkId }) release()
@@ -394,6 +417,8 @@ class WifiManagementPlugin :
         }
     }
 
+    // Parked app-only WifiNetworkSpecifier path: its callback (see connect).
+    /*
     /**
      * The BSSID Android reports must equal the one requested before the process
      * is bound. On API 31+ the BSSID only arrives through
@@ -503,6 +528,7 @@ class WifiManagementPlugin :
             }
         }
     }
+    */
 
     /**
      * Drops the active request and the process binding. Idempotent. On the
@@ -514,6 +540,7 @@ class WifiManagementPlugin :
         connectivityManager.bindProcessToNetwork(null)
         systemTimeout?.let(mainHandler::removeCallbacks)
         systemTimeout = null
+        stopSuggestionWait()
         systemNetworkId?.let {
             @Suppress("DEPRECATION")
             wifiManager.disableNetwork(it)
@@ -527,6 +554,183 @@ class WifiManagementPlugin :
         val callback = networkCallback ?: return
         networkCallback = null
         runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+    }
+
+    // ---------------------------------------------------------------------
+    // Regular app: the router as a network suggestion (API 29+)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Hands the router to Android as this app's only network suggestion,
+     * locked to [bssid]. Android joins it as the device's own Wi-Fi (with
+     * internet, for every app) once the user approved this app's suggestions
+     * (a one-time system dialog) and no network the user saved is preferred.
+     * [watchSystemNetwork] then waits for that BSSID and binds.
+     */
+    private fun connectSuggestion(
+        requestId: Long,
+        ssid: String,
+        bssid: String,
+        security: String,
+        password: String,
+    ) {
+        val suggestion = try {
+            WifiNetworkSuggestion.Builder()
+                .setSsid(ssid)
+                .setBssid(MacAddress.fromString(bssid))
+                .apply {
+                    when (security) {
+                        "wpa2" -> setWpa2Passphrase(password)
+                        "wpa3" -> setWpa3Passphrase(password)
+                    }
+                }
+                .build()
+        } catch (e: IllegalArgumentException) {
+            emit(requestId, "error", failure = "invalid_config")
+            return
+        }
+        val failure = try {
+            replaceSuggestions(suggestion)
+        } catch (e: SecurityException) {
+            // CHANGE_WIFI_STATE revoked: the user declined the suggestions.
+            "approval_denied"
+        }
+        if (failure != null) {
+            emit(requestId, "error", ssid = ssid, failure = failure)
+            return
+        }
+        watchSystemNetwork(requestId, ssid, bssid, join = null)
+        val callback = networkCallback ?: return
+        pendingSuggestion = suggestion
+        // Android weighs a suggestion only at its next network selection, and
+        // a disconnected device may scan minutes apart: a just-approved
+        // suggestion then sits unused until the deadline. Both nudges below
+        // make it join within seconds.
+        startScanNudges(callback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            watchApproval(requestId, ssid, bssid, callback)
+        }
+    }
+
+    /**
+     * Asks for a scan every [SCAN_NUDGE_INTERVAL_MS] while the suggestion is
+     * not joined; each scan result triggers Android's network selection.
+     * Throttled scans simply fail, which is harmless.
+     */
+    private fun startScanNudges(callback: ConnectivityManager.NetworkCallback) {
+        val nudge = object : Runnable {
+            override fun run() {
+                if (networkCallback !== callback || pendingSuggestion == null) return
+                @Suppress("DEPRECATION")
+                wifiManager.startScan()
+                mainHandler.postDelayed(this, SCAN_NUDGE_INTERVAL_MS)
+            }
+        }
+        scanNudge = nudge
+        mainHandler.postDelayed(nudge, SCAN_NUDGE_FIRST_MS)
+    }
+
+    /**
+     * API 31+: once the user approves this app's suggestions, re-adding the
+     * suggestion makes Android connect at once (instead of at its next
+     * periodic scan), and the deadline restarts so the time spent in the
+     * dialog does not count. A rejection fails with `approval_denied`.
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun watchApproval(
+        requestId: Long,
+        ssid: String,
+        bssid: String,
+        callback: ConnectivityManager.NetworkCallback,
+    ) {
+        val listener = WifiManager.SuggestionUserApprovalStatusListener { status ->
+            if (networkCallback !== callback) return@SuggestionUserApprovalStatusListener
+            when (approvalAction(status)) {
+                "retry" -> retryApprovedSuggestion(requestId, ssid, bssid, callback)
+                "denied" -> {
+                    release()
+                    emit(requestId, "error", ssid = ssid, failure = "approval_denied")
+                }
+            }
+        }
+        approvalListener = listener
+        runCatching {
+            wifiManager.addSuggestionUserApprovalStatusListener(context.mainExecutor, listener)
+        }
+    }
+
+    /** Re-adds the approved suggestion once, scans, and restarts the deadline. */
+    private fun retryApprovedSuggestion(
+        requestId: Long,
+        ssid: String,
+        bssid: String,
+        callback: ConnectivityManager.NetworkCallback,
+    ) {
+        val suggestion = pendingSuggestion ?: return
+        // Already joined (the listener may fire on registration): re-adding
+        // would drop that connection.
+        if (approvalRetried || isJoined(ssid, bssid)) return
+        approvalRetried = true
+        val failure = try {
+            replaceSuggestions(suggestion)
+        } catch (e: SecurityException) {
+            "approval_denied"
+        }
+        if (failure != null) {
+            release()
+            emit(requestId, "error", ssid = ssid, failure = failure)
+            return
+        }
+        @Suppress("DEPRECATION")
+        wifiManager.startScan()
+        armSystemTimeout(callback, requestId, ssid, bssid)
+    }
+
+    /** Ends the suggestion wait: joined, released, or timed out. Idempotent. */
+    private fun stopSuggestionWait() {
+        scanNudge?.let(mainHandler::removeCallbacks)
+        scanNudge = null
+        pendingSuggestion = null
+        approvalRetried = false
+        val listener = approvalListener ?: return
+        approvalListener = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching {
+                wifiManager.removeSuggestionUserApprovalStatusListener(
+                    listener as WifiManager.SuggestionUserApprovalStatusListener,
+                )
+            }
+        }
+    }
+
+    /**
+     * Makes [suggestion] the app's only one. Remove-then-add is safe: [connect]
+     * only gets here when the device is not on this router, and it is how a
+     * new password lands (suggestion equality ignores the passphrase).
+     * Returns a failure code, or null.
+     */
+    private fun replaceSuggestions(suggestion: WifiNetworkSuggestion): String? {
+        wifiManager.removeNetworkSuggestions(emptyList()) // empty: all of this app's
+        return suggestionFailure(wifiManager.addNetworkSuggestions(listOf(suggestion)))
+    }
+
+    /** Removes this app's suggestions for [ssid]; see [forgetSystemNetwork]. */
+    private fun forgetSuggestion(ssid: String): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val mine = wifiManager.networkSuggestions.filter { it.ssid == ssid }
+            if (mine.isEmpty()) return "not_device_owner"
+            release()
+            return if (
+                wifiManager.removeNetworkSuggestions(mine) ==
+                WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS
+            ) "removed" else "failed"
+        }
+        // API 29 cannot list suggestions; this app keeps at most one.
+        release()
+        return when (wifiManager.removeNetworkSuggestions(emptyList())) {
+            WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS -> "removed"
+            else -> "not_device_owner"
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -665,7 +869,20 @@ class WifiManagementPlugin :
             callback,
         )
         join?.invoke()
+        armSystemTimeout(callback, requestId, ssid, bssid)
+    }
 
+    /**
+     * (Re)starts the deadline for [callback] to see [bssid]: past it the wait
+     * ends as `bssid_mismatch` (on another router) or `unavailable`.
+     */
+    private fun armSystemTimeout(
+        callback: ConnectivityManager.NetworkCallback,
+        requestId: Long,
+        ssid: String,
+        bssid: String,
+    ) {
+        systemTimeout?.let(mainHandler::removeCallbacks)
         val timeout = Runnable {
             if (networkCallback !== callback) return@Runnable
             val actual = currentBssid(null)
@@ -746,6 +963,7 @@ class WifiManagementPlugin :
                 verifiedNetwork = network
                 systemTimeout?.let(mainHandler::removeCallbacks)
                 systemTimeout = null
+                stopSuggestionWait()
                 emit(requestId, "connected", ssid = ssid, bssid = actual)
             } else {
                 release()
@@ -978,6 +1196,38 @@ class WifiManagementPlugin :
             bssid: String,
         ): Boolean = knownBssid(rawBssid) == bssid &&
             rawSsid?.removeSurrounding("\"") == ssid
+
+        /** First scan nudge after a suggestion is placed, then the interval. */
+        private const val SCAN_NUDGE_FIRST_MS = 3_000L
+        private const val SCAN_NUDGE_INTERVAL_MS = 15_000L
+
+        /**
+         * What a suggestion approval status asks for: `retry` (just approved:
+         * re-add so Android joins now), `denied`, or null (pending / unknown).
+         * The `STATUS_SUGGESTION_APPROVAL_*` constants are API 31, inlined.
+         */
+        internal fun approvalAction(status: Int): String? = when (status) {
+            WifiManager.STATUS_SUGGESTION_APPROVAL_APPROVED_BY_USER,
+            WifiManager.STATUS_SUGGESTION_APPROVAL_APPROVED_BY_CARRIER_PRIVILEGE,
+            -> "retry"
+            WifiManager.STATUS_SUGGESTION_APPROVAL_REJECTED_BY_USER -> "denied"
+            else -> null
+        }
+
+        /**
+         * Failure code for an `addNetworkSuggestions` status, or null when the
+         * suggestion is in place.
+         */
+        internal fun suggestionFailure(status: Int): String? = when (status) {
+            WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+            WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_DUPLICATE,
+            -> null
+            // The user declined this app's suggestions.
+            WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_APP_DISALLOWED -> "approval_denied"
+            // A compile-time constant (API 33); older devices never return it.
+            WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_RESTRICTED_BY_ADMIN -> "unsupported"
+            else -> "invalid_config"
+        }
 
         /** Null for an empty or redacted (`02:00:00:00:00:00`) BSSID. */
         internal fun knownBssid(raw: String?): String? =

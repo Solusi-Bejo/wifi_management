@@ -30,6 +30,27 @@ internal class WifiManagementPluginTest {
     }
 
     @Test
+    fun suggestionFailure_mapsAddStatus() {
+        // Values of WifiManager.STATUS_NETWORK_SUGGESTIONS_* (inlined at compile time).
+        assertNull(WifiManagementPlugin.suggestionFailure(0)) // SUCCESS
+        assertNull(WifiManagementPlugin.suggestionFailure(3)) // ERROR_ADD_DUPLICATE
+        assertEquals("approval_denied", WifiManagementPlugin.suggestionFailure(2)) // APP_DISALLOWED
+        assertEquals("unsupported", WifiManagementPlugin.suggestionFailure(8)) // RESTRICTED_BY_ADMIN
+        assertEquals("invalid_config", WifiManagementPlugin.suggestionFailure(7)) // ADD_INVALID
+        assertEquals("invalid_config", WifiManagementPlugin.suggestionFailure(1)) // INTERNAL
+    }
+
+    @Test
+    fun approvalAction_retriesOnlyOnApproval() {
+        // Values of WifiManager.STATUS_SUGGESTION_APPROVAL_* (API 31, inlined).
+        assertNull(WifiManagementPlugin.approvalAction(0)) // UNKNOWN
+        assertNull(WifiManagementPlugin.approvalAction(1)) // PENDING
+        assertEquals("retry", WifiManagementPlugin.approvalAction(2)) // APPROVED_BY_USER
+        assertEquals("denied", WifiManagementPlugin.approvalAction(3)) // REJECTED_BY_USER
+        assertEquals("retry", WifiManagementPlugin.approvalAction(4)) // APPROVED_BY_CARRIER_PRIVILEGE
+    }
+
+    @Test
     fun isSameAccessPoint_needsTheExactRouter() {
         val ssid = "AndroidWifi"
         val bssid = "02:15:b2:00:00:01"

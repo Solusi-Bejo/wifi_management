@@ -204,6 +204,8 @@ class WifiManagement {
         phase: WifiManagementPhase.connecting,
         target: target,
         actualBssid: null,
+        // A new attempt: the previous one's failure no longer applies.
+        failure: null,
       ),
     );
 
