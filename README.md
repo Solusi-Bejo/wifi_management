@@ -209,6 +209,27 @@ final forgotten = await manager.reset();
 The router is saved only after its BSSID is verified. A lost link retries
 after 2, 4, 8, 16, then every 30 seconds, one attempt at a time.
 
+### Hidden SSID or manual entry
+
+A router that hides its SSID still shows up in a scan with an empty `ssid`
+(BSSID, security and signal are there). Ask for the name and join it as
+hidden. For a router that is not in the scan at all, the BSSID may be left
+empty: the first join locks the BSSID it lands on.
+
+```dart
+await manager.connectNew(
+  WifiConfig(
+    ssid: typedSsid,
+    bssid: typedBssid, // '' = lock the first one joined
+    security: WifiSecurity.wpa2,
+    password: password,
+    hidden: true,
+  ),
+);
+
+WifiConfig.isValidBssid('AA-BB-CC-00-00-07'); // true
+```
+
 ### Scan and check readiness
 
 Each action is its own use case over a `WifiRepository`:
@@ -255,6 +276,12 @@ class MyConfigRepository implements WifiConfigRepository {
 - **Already on the router.** When the device's own Wi-Fi is already on the
   requested SSID + BSSID, the plugin binds to that connection and changes
   nothing.
+- **Device already on another Wi-Fi.** A regular app cannot move the device
+  off a network the user saved; `connect` then fails at once with
+  `WifiFailure.connectedElsewhere`. Open `WifiSettingsTarget.wifi`, let the
+  user pick the router, and connect again: the plugin finds the device already
+  on it and uses that connection. `GetCurrentWifi` shows which network the
+  device is on. Device Owner switches by itself.
 - **First join after approval.** The plugin re-adds the suggestion when the
   user approves it (Android 12+) and nudges scans while waiting, so the device
   joins within seconds instead of at Android's next periodic scan.

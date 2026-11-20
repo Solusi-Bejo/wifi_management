@@ -2,4 +2,10 @@
 enum WifiReadiness { ready, unsupported, permissionDenied, locationDisabled }
 
 /// System screens that fix a [WifiReadiness] problem.
-enum WifiSettingsTarget { location, app }
+enum WifiSettingsTarget {
+  location,
+  app,
+
+  /// The system Wi-Fi picker (Android: a panel over the app).
+  wifi,
+}

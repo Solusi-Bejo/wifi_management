@@ -88,7 +88,16 @@ void main() {
     final openSettings = OpenWifiSettings(repository);
     await openSettings(WifiSettingsTarget.location);
     await openSettings(WifiSettingsTarget.app);
+    await openSettings(WifiSettingsTarget.wifi);
 
-    expect(platform.openedSettings, ['location', 'app']);
+    expect(platform.openedSettings, ['location', 'app', 'wifi']);
+  });
+
+  test("GetCurrentWifi reports the device's own Wi-Fi", () async {
+    final current = GetCurrentWifi(repository);
+    expect(await current(), isNull);
+
+    platform.current = routerB;
+    expect(await current(), routerB);
   });
 }

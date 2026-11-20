@@ -379,9 +379,12 @@ struct PlatformScanResult: Hashable, CustomStringConvertible {
 struct PlatformConnectRequest: Hashable, CustomStringConvertible {
   var requestId: Int64
   var ssid: String
+  /// Empty: not locked yet; join [ssid] and report the BSSID it lands on.
   var bssid: String
   var security: String
   var password: String
+  /// The SSID is not broadcast; probe for it by name.
+  var hidden: Bool
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -391,13 +394,15 @@ struct PlatformConnectRequest: Hashable, CustomStringConvertible {
     let bssid = pigeonVar_list[2] as! String
     let security = pigeonVar_list[3] as! String
     let password = pigeonVar_list[4] as! String
+    let hidden = pigeonVar_list[5] as! Bool
 
     return PlatformConnectRequest(
       requestId: requestId,
       ssid: ssid,
       bssid: bssid,
       security: security,
-      password: password
+      password: password,
+      hidden: hidden
     )
   }
   func toList() -> [Any?] {
@@ -407,13 +412,14 @@ struct PlatformConnectRequest: Hashable, CustomStringConvertible {
       bssid,
       security,
       password,
+      hidden,
     ]
   }
   static func == (lhs: PlatformConnectRequest, rhs: PlatformConnectRequest) -> Bool {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return MessagesPigeonInternal.deepEquals(lhs.requestId, rhs.requestId) && MessagesPigeonInternal.deepEquals(lhs.ssid, rhs.ssid) && MessagesPigeonInternal.deepEquals(lhs.bssid, rhs.bssid) && MessagesPigeonInternal.deepEquals(lhs.security, rhs.security) && MessagesPigeonInternal.deepEquals(lhs.password, rhs.password)
+    return MessagesPigeonInternal.deepEquals(lhs.requestId, rhs.requestId) && MessagesPigeonInternal.deepEquals(lhs.ssid, rhs.ssid) && MessagesPigeonInternal.deepEquals(lhs.bssid, rhs.bssid) && MessagesPigeonInternal.deepEquals(lhs.security, rhs.security) && MessagesPigeonInternal.deepEquals(lhs.password, rhs.password) && MessagesPigeonInternal.deepEquals(lhs.hidden, rhs.hidden)
   }
 
   func hash(into hasher: inout Hasher) {
@@ -423,10 +429,11 @@ struct PlatformConnectRequest: Hashable, CustomStringConvertible {
     MessagesPigeonInternal.deepHash(value: bssid, hasher: &hasher)
     MessagesPigeonInternal.deepHash(value: security, hasher: &hasher)
     MessagesPigeonInternal.deepHash(value: password, hasher: &hasher)
+    MessagesPigeonInternal.deepHash(value: hidden, hasher: &hasher)
   }
 
   public var description: String {
-    return "PlatformConnectRequest(requestId: \(String(describing: requestId)), ssid: \(String(describing: ssid)), bssid: \(String(describing: bssid)), security: \(String(describing: security)), password: \(String(describing: password)))"
+    return "PlatformConnectRequest(requestId: \(String(describing: requestId)), ssid: \(String(describing: ssid)), bssid: \(String(describing: bssid)), security: \(String(describing: security)), password: \(String(describing: password)), hidden: \(String(describing: hidden)))"
   }
 }
 
@@ -567,7 +574,11 @@ protocol WifiManagementHostApi {
   /// only when the app is the Device Owner. Returns `removed`, `not_found`,
   /// `not_device_owner`, `unsupported` or `failed`.
   func forgetSystemNetwork(ssid: String) throws -> String
+  /// The Wi-Fi the device itself is on now; null when it is on none or the
+  /// SSID/BSSID cannot be read (permission, Location Services).
+  func currentNetwork(completion: @escaping (Result<PlatformAccessPoint?, Error>) -> Void)
   func openLocationSettings() throws
+  func openWifiSettings() throws
   func openAppSettings() throws
 }
 
@@ -682,6 +693,23 @@ class WifiManagementHostApiSetup {
     } else {
       forgetSystemNetworkChannel.setMessageHandler(nil)
     }
+    /// The Wi-Fi the device itself is on now; null when it is on none or the
+    /// SSID/BSSID cannot be read (permission, Location Services).
+    let currentNetworkChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.currentNetwork\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      currentNetworkChannel.setMessageHandler { _, reply in
+        api.currentNetwork { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      currentNetworkChannel.setMessageHandler(nil)
+    }
     let openLocationSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openLocationSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       openLocationSettingsChannel.setMessageHandler { _, reply in
@@ -694,6 +722,19 @@ class WifiManagementHostApiSetup {
       }
     } else {
       openLocationSettingsChannel.setMessageHandler(nil)
+    }
+    let openWifiSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openWifiSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      openWifiSettingsChannel.setMessageHandler { _, reply in
+        do {
+          try api.openWifiSettings()
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      openWifiSettingsChannel.setMessageHandler(nil)
     }
     let openAppSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openAppSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

@@ -17,7 +17,8 @@ mixin _$WifiConfig {
 
  String get ssid;/// Lower-case `aa:bb:cc:dd:ee:ff`; see [normalizeBssid].
  String get bssid;@JsonKey(unknownEnumValue: WifiSecurity.unsupported) WifiSecurity get security;/// Never logged; [toString] leaves it out.
- String get password;
+ String get password;/// The router does not broadcast its SSID, so it must be probed by name.
+ bool get hidden;
 /// Create a copy of WifiConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,12 +31,12 @@ $WifiConfigCopyWith<WifiConfig> get copyWith => _$WifiConfigCopyWithImpl<WifiCon
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WifiConfig&&(identical(other.ssid, ssid) || other.ssid == ssid)&&(identical(other.bssid, bssid) || other.bssid == bssid)&&(identical(other.security, security) || other.security == security)&&(identical(other.password, password) || other.password == password));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WifiConfig&&(identical(other.ssid, ssid) || other.ssid == ssid)&&(identical(other.bssid, bssid) || other.bssid == bssid)&&(identical(other.security, security) || other.security == security)&&(identical(other.password, password) || other.password == password)&&(identical(other.hidden, hidden) || other.hidden == hidden));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,ssid,bssid,security,password);
+int get hashCode => Object.hash(runtimeType,ssid,bssid,security,password,hidden);
 
 
 
@@ -46,7 +47,7 @@ abstract mixin class $WifiConfigCopyWith<$Res>  {
   factory $WifiConfigCopyWith(WifiConfig value, $Res Function(WifiConfig) _then) = _$WifiConfigCopyWithImpl;
 @useResult
 $Res call({
- String ssid, String bssid,@JsonKey(unknownEnumValue: WifiSecurity.unsupported) WifiSecurity security, String password
+ String ssid, String bssid,@JsonKey(unknownEnumValue: WifiSecurity.unsupported) WifiSecurity security, String password, bool hidden
 });
 
 
@@ -63,13 +64,14 @@ class _$WifiConfigCopyWithImpl<$Res>
 
 /// Create a copy of WifiConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? ssid = null,Object? bssid = null,Object? security = null,Object? password = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? ssid = null,Object? bssid = null,Object? security = null,Object? password = null,Object? hidden = null,}) {
   return _then(_self.copyWith(
 ssid: null == ssid ? _self.ssid : ssid // ignore: cast_nullable_to_non_nullable
 as String,bssid: null == bssid ? _self.bssid : bssid // ignore: cast_nullable_to_non_nullable
 as String,security: null == security ? _self.security : security // ignore: cast_nullable_to_non_nullable
 as WifiSecurity,password: null == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
-as String,
+as String,hidden: null == hidden ? _self.hidden : hidden // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -154,10 +156,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String ssid,  String bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported)  WifiSecurity security,  String password)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String ssid,  String bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported)  WifiSecurity security,  String password,  bool hidden)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WifiConfig() when $default != null:
-return $default(_that.ssid,_that.bssid,_that.security,_that.password);case _:
+return $default(_that.ssid,_that.bssid,_that.security,_that.password,_that.hidden);case _:
   return orElse();
 
 }
@@ -175,10 +177,10 @@ return $default(_that.ssid,_that.bssid,_that.security,_that.password);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String ssid,  String bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported)  WifiSecurity security,  String password)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String ssid,  String bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported)  WifiSecurity security,  String password,  bool hidden)  $default,) {final _that = this;
 switch (_that) {
 case _WifiConfig():
-return $default(_that.ssid,_that.bssid,_that.security,_that.password);case _:
+return $default(_that.ssid,_that.bssid,_that.security,_that.password,_that.hidden);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -195,10 +197,10 @@ return $default(_that.ssid,_that.bssid,_that.security,_that.password);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String ssid,  String bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported)  WifiSecurity security,  String password)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String ssid,  String bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported)  WifiSecurity security,  String password,  bool hidden)?  $default,) {final _that = this;
 switch (_that) {
 case _WifiConfig() when $default != null:
-return $default(_that.ssid,_that.bssid,_that.security,_that.password);case _:
+return $default(_that.ssid,_that.bssid,_that.security,_that.password,_that.hidden);case _:
   return null;
 
 }
@@ -210,7 +212,7 @@ return $default(_that.ssid,_that.bssid,_that.security,_that.password);case _:
 @JsonSerializable()
 
 class _WifiConfig extends WifiConfig {
-  const _WifiConfig({required this.ssid, required this.bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported) required this.security, this.password = ''}): super._();
+  const _WifiConfig({required this.ssid, required this.bssid, @JsonKey(unknownEnumValue: WifiSecurity.unsupported) required this.security, this.password = '', this.hidden = false}): super._();
   factory _WifiConfig.fromJson(Map<String, dynamic> json) => _$WifiConfigFromJson(json);
 
 @override final  String ssid;
@@ -219,6 +221,8 @@ class _WifiConfig extends WifiConfig {
 @override@JsonKey(unknownEnumValue: WifiSecurity.unsupported) final  WifiSecurity security;
 /// Never logged; [toString] leaves it out.
 @override@JsonKey() final  String password;
+/// The router does not broadcast its SSID, so it must be probed by name.
+@override@JsonKey() final  bool hidden;
 
 /// Create a copy of WifiConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -233,12 +237,12 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WifiConfig&&(identical(other.ssid, ssid) || other.ssid == ssid)&&(identical(other.bssid, bssid) || other.bssid == bssid)&&(identical(other.security, security) || other.security == security)&&(identical(other.password, password) || other.password == password));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WifiConfig&&(identical(other.ssid, ssid) || other.ssid == ssid)&&(identical(other.bssid, bssid) || other.bssid == bssid)&&(identical(other.security, security) || other.security == security)&&(identical(other.password, password) || other.password == password)&&(identical(other.hidden, hidden) || other.hidden == hidden));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,ssid,bssid,security,password);
+int get hashCode => Object.hash(runtimeType,ssid,bssid,security,password,hidden);
 
 
 
@@ -249,7 +253,7 @@ abstract mixin class _$WifiConfigCopyWith<$Res> implements $WifiConfigCopyWith<$
   factory _$WifiConfigCopyWith(_WifiConfig value, $Res Function(_WifiConfig) _then) = __$WifiConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String ssid, String bssid,@JsonKey(unknownEnumValue: WifiSecurity.unsupported) WifiSecurity security, String password
+ String ssid, String bssid,@JsonKey(unknownEnumValue: WifiSecurity.unsupported) WifiSecurity security, String password, bool hidden
 });
 
 
@@ -266,13 +270,14 @@ class __$WifiConfigCopyWithImpl<$Res>
 
 /// Create a copy of WifiConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? ssid = null,Object? bssid = null,Object? security = null,Object? password = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? ssid = null,Object? bssid = null,Object? security = null,Object? password = null,Object? hidden = null,}) {
   return _then(_WifiConfig(
 ssid: null == ssid ? _self.ssid : ssid // ignore: cast_nullable_to_non_nullable
 as String,bssid: null == bssid ? _self.bssid : bssid // ignore: cast_nullable_to_non_nullable
 as String,security: null == security ? _self.security : security // ignore: cast_nullable_to_non_nullable
 as WifiSecurity,password: null == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
-as String,
+as String,hidden: null == hidden ? _self.hidden : hidden // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

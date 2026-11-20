@@ -18,7 +18,8 @@ public class WifiManagementPlugin: NSObject, FlutterPlugin, WifiManagementHostAp
   private struct ActiveRequest {
     let requestId: Int64
     let ssid: String
-    let bssid: String
+    /// Empty until the first join locks one.
+    var bssid: String
     var verified = false
   }
 
@@ -82,6 +83,27 @@ public class WifiManagementPlugin: NSObject, FlutterPlugin, WifiManagementHostAp
 
   func openAppSettings() throws { openSettings() }
 
+  /// iOS has no public way to open the Wi-Fi screen; the app's settings page
+  /// is the closest allowed one.
+  func openWifiSettings() throws { openSettings() }
+
+  /// The device's current Wi-Fi as `NEHotspotNetwork` reports it (needs the
+  /// Access Wi-Fi Information entitlement and location permission).
+  func currentNetwork(completion: @escaping (Result<PlatformAccessPoint?, Error>) -> Void) {
+    NEHotspotNetwork.fetchCurrent { network in
+      guard let network, !network.ssid.isEmpty, !network.bssid.isEmpty else {
+        completion(.success(nil))
+        return
+      }
+      completion(.success(PlatformAccessPoint(
+        ssid: network.ssid,
+        bssid: network.bssid.lowercased(),
+        rssi: 0,
+        security: "unsupported"
+      )))
+    }
+  }
+
   private func openSettings() {
     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
     UIApplication.shared.open(url)
@@ -117,6 +139,7 @@ public class WifiManagementPlugin: NSObject, FlutterPlugin, WifiManagementHostAp
       return
     }
     configuration.joinOnce = false
+    configuration.hidden = request.hidden
 
     active = ActiveRequest(requestId: request.requestId, ssid: request.ssid, bssid: bssid)
     emit(request.requestId, "connecting", ssid: request.ssid, bssid: bssid)
@@ -156,7 +179,9 @@ public class WifiManagementPlugin: NSObject, FlutterPlugin, WifiManagementHostAp
         guard let self = self, let request = self.active, request.requestId == requestId
         else { return }
         let actual = network.flatMap { $0.ssid == request.ssid ? $0.bssid.lowercased() : nil }
-        if actual == request.bssid {
+        // An empty BSSID (none locked yet) accepts the one joined and keeps it.
+        if let actual, request.bssid.isEmpty || actual == request.bssid {
+          self.active?.bssid = actual
           self.active?.verified = true
           self.emit(requestId, "connected", ssid: request.ssid, bssid: actual)
           self.startMonitoring()

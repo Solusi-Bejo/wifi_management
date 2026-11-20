@@ -59,6 +59,11 @@ class _FakeHostApi extends WifiManagementHostApi {
 
   String forgetAnswer = 'not_device_owner';
 
+  PlatformAccessPoint? current;
+
+  @override
+  Future<PlatformAccessPoint?> currentNetwork() async => current;
+
   @override
   Future<String> forgetSystemNetwork(String ssid) async => forgetAnswer;
 }
@@ -85,6 +90,26 @@ void main() {
     expect(api.requests.single.bssid, routerA.bssid);
     expect(api.requests.single.password, 'secret123');
   });
+
+  test(
+    'no BSSID locked: the first one joined is accepted; hidden is sent',
+    () async {
+      api.answer = [('connected', routerB.bssid)];
+      const unlocked = WifiConfig(
+        ssid: 'SSID001',
+        bssid: '',
+        security: WifiSecurity.wpa2,
+        password: 'secret123',
+        hidden: true,
+      );
+
+      final result = await platform.connect(unlocked);
+
+      expect(result, WifiConnectResult.connected(routerB.bssid));
+      expect(api.requests.single.bssid, '');
+      expect(api.requests.single.hidden, isTrue);
+    },
+  );
 
   test('a connected event for another BSSID is a mismatch', () async {
     api.answer = [('connected', routerB.bssid)];
@@ -155,6 +180,17 @@ void main() {
     );
   });
 
+  test('currentNetwork maps the host answer; none is null', () async {
+    expect(await platform.currentNetwork(), isNull);
+    api.current = PlatformAccessPoint(
+      ssid: 'SSID001',
+      bssid: 'AA:BB:CC:00:00:01',
+      rssi: -50,
+      security: 'wpa2',
+    );
+    expect(await platform.currentNetwork(), routerA);
+  });
+
   test('an unsupported host never calls the platform', () async {
     final offHost = PigeonWifiManagement(api: api, isHostSupported: false);
 
@@ -168,6 +204,7 @@ void main() {
       await offHost.forgetSystemNetwork('SSID001'),
       WifiForgetResult.unsupported,
     );
+    expect(await offHost.currentNetwork(), isNull);
     expect(api.requests, isEmpty);
   });
 }

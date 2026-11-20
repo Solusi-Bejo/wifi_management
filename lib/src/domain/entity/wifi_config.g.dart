@@ -15,6 +15,7 @@ _WifiConfig _$WifiConfigFromJson(Map<String, dynamic> json) => _WifiConfig(
     unknownValue: WifiSecurity.unsupported,
   ),
   password: json['password'] as String? ?? '',
+  hidden: json['hidden'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$WifiConfigToJson(_WifiConfig instance) =>
@@ -23,6 +24,7 @@ Map<String, dynamic> _$WifiConfigToJson(_WifiConfig instance) =>
       'bssid': instance.bssid,
       'security': _$WifiSecurityEnumMap[instance.security]!,
       'password': instance.password,
+      'hidden': instance.hidden,
     };
 
 const _$WifiSecurityEnumMap = {

@@ -15,6 +15,7 @@ export 'usecase/clear_wifi_config.dart';
 export 'usecase/connect_wifi.dart';
 export 'usecase/disconnect_wifi.dart';
 export 'usecase/forget_system_wifi.dart';
+export 'usecase/get_current_wifi.dart';
 export 'usecase/get_wifi_capabilities.dart';
 export 'usecase/load_wifi_config.dart';
 export 'usecase/open_wifi_settings.dart';

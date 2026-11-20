@@ -51,6 +51,39 @@ internal class WifiManagementPluginTest {
     }
 
     @Test
+    fun isElsewhere_onlyForAnotherNetworkNotSuggestedByUs() {
+        val ssid = "Solusi Bejo (4G)"
+        val bssid = "28:6e:da:1d:ac:50"
+        // On the user's 5G network: elsewhere.
+        assertTrue(WifiManagementPlugin.isElsewhere("\"Solusi Bejo (5G)\"", "28:6E:DA:1D:AC:51", ssid, bssid, emptyList()))
+        // On the requested router: not elsewhere.
+        assertFalse(WifiManagementPlugin.isElsewhere("\"Solusi Bejo (4G)\"", "28:6e:da:1d:ac:50", ssid, bssid, emptyList()))
+        // On a network this app suggested (the previous router): replaceable.
+        assertFalse(WifiManagementPlugin.isElsewhere("\"Old\"", "aa:bb:cc:00:00:01", ssid, bssid, listOf("Old")))
+        // Not connected, or unreadable: nothing to say.
+        assertFalse(WifiManagementPlugin.isElsewhere("<unknown ssid>", null, ssid, bssid, emptyList()))
+        assertFalse(WifiManagementPlugin.isElsewhere("\"X\"", "02:00:00:00:00:00", ssid, bssid, emptyList()))
+    }
+
+    @Test
+    fun emptyBssid_matchesTheSsidOnly() {
+        // A manually entered router without BSSID: any BSSID of that SSID.
+        assertTrue(WifiManagementPlugin.isSameAccessPoint("\"Hidden\"", "aa:bb:cc:00:00:07", "Hidden", ""))
+        assertFalse(WifiManagementPlugin.isSameAccessPoint("\"Other\"", "aa:bb:cc:00:00:07", "Hidden", ""))
+        assertFalse(WifiManagementPlugin.isSameAccessPoint("\"Hidden\"", "02:00:00:00:00:00", "Hidden", ""))
+        assertFalse(WifiManagementPlugin.isElsewhere("\"Hidden\"", "aa:bb:cc:00:00:07", "Hidden", "", emptyList()))
+        assertTrue(WifiManagementPlugin.isElsewhere("\"Other\"", "aa:bb:cc:00:00:07", "Hidden", "", emptyList()))
+    }
+
+    @Test
+    fun readableSsid_stripsQuotesAndUnknown() {
+        assertEquals("AndroidWifi", WifiManagementPlugin.readableSsid("\"AndroidWifi\""))
+        assertNull(WifiManagementPlugin.readableSsid("<unknown ssid>"))
+        assertNull(WifiManagementPlugin.readableSsid(null))
+        assertNull(WifiManagementPlugin.readableSsid(""))
+    }
+
+    @Test
     fun isSameAccessPoint_needsTheExactRouter() {
         val ssid = "AndroidWifi"
         val bssid = "02:15:b2:00:00:01"

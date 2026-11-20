@@ -1,5 +1,6 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
+import '../../domain/entity/wifi_access_point.dart';
 import '../../domain/entity/wifi_capabilities.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_connect_result.dart';
@@ -58,6 +59,14 @@ abstract class WifiManagementPlatform extends PlatformInterface {
       throw UnimplementedError(
         'forgetSystemNetwork() has not been implemented.',
       );
+
+  /// The Wi-Fi the device itself is on now, or null.
+  Future<WifiAccessPoint?> currentNetwork() =>
+      throw UnimplementedError('currentNetwork() has not been implemented.');
+
+  /// Opens the system Wi-Fi picker.
+  Future<void> openWifiSettings() =>
+      throw UnimplementedError('openWifiSettings() has not been implemented.');
 
   /// Changes of the request made by the latest [connect], notably
   /// [WifiNetworkEventType.lost] after it was connected.
