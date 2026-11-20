@@ -1,3 +1,7 @@
+## 0.3.1
+
+* Provide device admin receiver
+
 ## 0.3.0
 
 * **Device Owner on Android: the device's own Wi-Fi follows the plugin.**
@@ -7,6 +11,9 @@
   router, a new router that never verified, and `reset()` remove it. Without
   Device Owner nothing changes: the app-scoped `WifiNetworkSpecifier` request
   is used and the saved networks are left alone.
+* New `WifiManagementDeviceAdminReceiver` (+ `@xml/wifi_management_device_admin`)
+  for provisioning the app as Device Owner; the app registers it in its
+  manifest (see the README), the plugin does not.
 * `WifiManagement.reset()` now also removes the router from the device's saved
   Wi-Fi networks and returns a `WifiForgetResult`. Releasing the app's request
   alone left the device connected whenever the same router was saved in
