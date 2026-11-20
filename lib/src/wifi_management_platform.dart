@@ -1,0 +1,60 @@
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
+import 'pigeon_wifi_management.dart';
+import 'wifi_config.dart';
+import 'wifi_connection.dart';
+
+/// Host side of `wifi_management`. Apps use `WifiManagement` /
+/// `PinnedWifiManager`; tests replace [instance] with a fake.
+abstract class WifiManagementPlatform extends PlatformInterface {
+  WifiManagementPlatform() : super(token: _token);
+
+  static final Object _token = Object();
+
+  static WifiManagementPlatform _instance = PigeonWifiManagement();
+
+  /// Defaults to [PigeonWifiManagement].
+  static WifiManagementPlatform get instance => _instance;
+
+  static set instance(WifiManagementPlatform instance) {
+    PlatformInterface.verifyToken(instance, _token);
+    _instance = instance;
+  }
+
+  Future<WifiCapabilities> capabilities() =>
+      throw UnimplementedError('capabilities() has not been implemented.');
+
+  Future<WifiReadiness> checkReadiness() =>
+      throw UnimplementedError('checkReadiness() has not been implemented.');
+
+  /// Shows the runtime permission prompt. True when everything is granted.
+  Future<bool> requestPermissions() => throw UnimplementedError(
+    'requestPermissions() has not been implemented.',
+  );
+
+  /// Raw scan as the platform reports it (may contain duplicates).
+  Future<WifiScanResult> scan() =>
+      throw UnimplementedError('scan() has not been implemented.');
+
+  /// Requests exactly [config]'s SSID + BSSID and completes once that is
+  /// settled. Only one request is alive at a time: this releases the previous
+  /// one.
+  Future<WifiConnectResult> connect(WifiConfig config) =>
+      throw UnimplementedError('connect() has not been implemented.');
+
+  /// Releases the network request (and, on Android, the process binding).
+  Future<void> disconnect() =>
+      throw UnimplementedError('disconnect() has not been implemented.');
+
+  /// Changes of the request made by the latest [connect], notably
+  /// [WifiNetworkEventType.lost] after it was connected.
+  Stream<WifiNetworkEvent> get events =>
+      throw UnimplementedError('events has not been implemented.');
+
+  Future<void> openLocationSettings() => throw UnimplementedError(
+    'openLocationSettings() has not been implemented.',
+  );
+
+  Future<void> openAppSettings() =>
+      throw UnimplementedError('openAppSettings() has not been implemented.');
+}

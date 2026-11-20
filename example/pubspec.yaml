@@ -1,0 +1,23 @@
+name: wifi_management_example
+description: "Demonstrates how to use the wifi_management plugin."
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  wifi_management:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  plugin_platform_interface: ^2.1.8
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

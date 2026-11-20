@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Merged into the app: scan, join, verify and bind one Wi-Fi network. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- Scan results and the joined BSSID need location (all versions). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Android 13+: Wi-Fi scans. No neverForLocation: the BSSID is location-relevant. -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+</manifest>
