@@ -18,7 +18,7 @@ void main() {
       failure: null,
     );
 
-    final result = await ScanWifi(repository)(const NoParams());
+    final result = await ScanWifi(repository)();
 
     expect(result.accessPoints, [routerA, routerB]);
   });

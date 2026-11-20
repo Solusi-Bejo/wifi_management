@@ -18,7 +18,7 @@ remembers it, and reconnects with backoff when the link drops.
 | Bind the app's traffic to that network | ✅ `bindProcessToNetwork` | ❌ | ❌ |
 | Detect a lost link | ✅ | ✅ (path monitor + polling) | ❌ |
 
-`GetWifiCapabilities(WifiRepositoryImpl())(const NoParams())` reports this at
+`GetWifiCapabilities(WifiRepositoryImpl())()` reports this at
 runtime. Unsupported platforms answer `WifiFailure.unsupported` /
 `WifiManagementPhase.unsupported`.
 
@@ -91,7 +91,7 @@ if (readiness == WifiReadiness.locationDisabled) {
 }
 
 // One entry per BSSID, strongest first.
-final scan = await ScanWifi(wifi)(const NoParams());
+final scan = await ScanWifi(wifi)();
 ```
 
 Pass the same repository to `WifiManagement(wifiRepository: wifi, ...)`.

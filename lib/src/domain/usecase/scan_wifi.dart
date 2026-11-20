@@ -4,13 +4,13 @@ import 'use_case.dart';
 
 /// One entry per BSSID, strongest signal first. Routers that share an SSID
 /// stay separate entries.
-class ScanWifi extends UseCase<Future<WifiScanResult>, NoParams> {
+class ScanWifi extends UseCase<Future<WifiScanResult>, void> {
   const ScanWifi(this._repository);
 
   final WifiRepository _repository;
 
   @override
-  Future<WifiScanResult> call(NoParams params) async {
+  Future<WifiScanResult> call([void _]) async {
     final result = await _repository.scan();
     final byBssid = {for (final ap in result.accessPoints) ap.bssid: ap};
     final sorted = byBssid.values.toList()

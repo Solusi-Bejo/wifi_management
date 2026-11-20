@@ -7,7 +7,7 @@ void main() {
 
   testWidgets('the host answers capabilities and readiness', (tester) async {
     final wifi = WifiRepositoryImpl();
-    final capabilities = await GetWifiCapabilities(wifi)(const NoParams());
+    final capabilities = await GetWifiCapabilities(wifi)();
     final readiness = await CheckWifiReadiness(wifi)(
       const CheckWifiReadinessParams(requestPermission: false),
     );

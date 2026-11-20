@@ -18,5 +18,4 @@ export 'usecase/load_wifi_config.dart';
 export 'usecase/open_wifi_settings.dart';
 export 'usecase/save_wifi_config.dart';
 export 'usecase/scan_wifi.dart';
-export 'usecase/use_case.dart';
 export 'usecase/watch_wifi_events.dart';

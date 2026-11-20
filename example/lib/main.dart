@@ -52,7 +52,7 @@ class _ExampleAppState extends State<ExampleApp> {
       setState(() => _scanMessage = 'Not ready: ${readiness.name}');
       return;
     }
-    final result = await _scanWifi(const NoParams());
+    final result = await _scanWifi();
     setState(() {
       _accessPoints = result.accessPoints;
       _scanMessage = result.failure == null

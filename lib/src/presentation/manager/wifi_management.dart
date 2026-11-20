@@ -15,7 +15,6 @@ import '../../domain/usecase/connect_wifi.dart';
 import '../../domain/usecase/disconnect_wifi.dart';
 import '../../domain/usecase/load_wifi_config.dart';
 import '../../domain/usecase/save_wifi_config.dart';
-import '../../domain/usecase/use_case.dart';
 import '../../domain/usecase/watch_wifi_events.dart';
 import 'wifi_management_state.dart';
 import 'wifi_retry_delay.dart';
@@ -103,9 +102,10 @@ class WifiManagement {
 
   /// Startup: stored router, then exact-BSSID join, then verified.
   Future<void> start() async {
-    _eventSubscription ??= _watchWifiEvents(
-      const NoParams(),
-    ).listen(_onNetworkEvent, onError: (Object _) {});
+    _eventSubscription ??= _watchWifiEvents().listen(
+      _onNetworkEvent,
+      onError: (Object _) {},
+    );
 
     WifiReadiness readiness;
     try {
@@ -123,13 +123,15 @@ class WifiManagement {
 
     WifiConfig? config;
     try {
-      config = await _loadWifiConfig(const NoParams());
+      config = await _loadWifiConfig();
     } catch (_) {
       config = null;
     }
     if (_disposed) return;
     if (config == null) {
-      _emit(const WifiManagementState(phase: WifiManagementPhase.notConfigured));
+      _emit(
+        const WifiManagementState(phase: WifiManagementPhase.notConfigured),
+      );
       return;
     }
     _emit(_state.copyWith(config: config));
@@ -154,7 +156,7 @@ class WifiManagement {
     _emit(const WifiManagementState(phase: WifiManagementPhase.notConfigured));
     await _release();
     try {
-      await _clearWifiConfig(const NoParams());
+      await _clearWifiConfig();
     } catch (_) {
       _emit(_state.copyWith(failure: WifiFailure.storageFailed));
     }
@@ -202,7 +204,9 @@ class WifiManagement {
         );
       case WifiConnectFailed(:final failure):
         if (failure == WifiFailure.unsupported) {
-          _emit(const WifiManagementState(phase: WifiManagementPhase.unsupported));
+          _emit(
+            const WifiManagementState(phase: WifiManagementPhase.unsupported),
+          );
           return;
         }
         _fail(failure);
@@ -269,7 +273,7 @@ class WifiManagement {
 
   Future<void> _release() async {
     try {
-      await _disconnectWifi(const NoParams());
+      await _disconnectWifi();
     } catch (_) {
       // Nothing left to release.
     }
