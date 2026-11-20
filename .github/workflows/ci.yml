@@ -12,13 +12,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Oldest supported and the latest stable.
-        flutter: ['3.41.4', 'stable']
+        # Oldest supported (pinned) and the latest stable (no version = latest).
+        include:
+          - flutter: '3.41.4'
+            version: '3.41.4'
+          - flutter: 'stable'
+            version: ''
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          flutter-version: ${{ matrix.version }}
           channel: stable
       - run: flutter pub get
       - run: flutter analyze
