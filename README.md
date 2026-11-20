@@ -117,12 +117,33 @@ plugin instead:
 | new router never verified | removed again (unless it shares the stored router's SSID) |
 | `reset()` | removed; the device leaves it |
 
-To get there, declare a `DeviceAdminReceiver`, then on a device without
-accounts run
+To get there:
 
-```sh
-adb shell dpm set-device-owner <applicationId>/<receiver class>
-```
+1. Register the plugin's admin receiver in your app's
+   `android/app/src/main/AndroidManifest.xml`, inside `<application>`. The
+   plugin does not declare it itself, so apps that skip this never appear as a
+   device admin.
+
+   ```xml
+   <receiver
+       android:name="com.solusibejo.wifi_management.WifiManagementDeviceAdminReceiver"
+       android:exported="true"
+       android:permission="android.permission.BIND_DEVICE_ADMIN">
+       <meta-data
+           android:name="android.app.device_admin"
+           android:resource="@xml/wifi_management_device_admin"/>
+       <intent-filter>
+           <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
+       </intent-filter>
+   </receiver>
+   ```
+
+2. On a device without accounts (fresh or factory reset), install the app and
+   run
+
+   ```sh
+   adb shell dpm set-device-owner <applicationId>/com.solusibejo.wifi_management.WifiManagementDeviceAdminReceiver
+   ```
 
 Without it `reset()` returns `WifiForgetResult.notDeviceOwner`; tell the user
 to forget the network in Settings. A Device Owner app cannot be uninstalled

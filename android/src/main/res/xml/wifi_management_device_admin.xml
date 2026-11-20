@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No legacy device-admin policies: Device Owner privileges come from
+     provisioning, not from this list. -->
+<device-admin>
+    <uses-policies />
+</device-admin>
