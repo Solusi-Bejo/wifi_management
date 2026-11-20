@@ -2,7 +2,9 @@ package com.solusibejo.wifi_management
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /*
  * Run with `./gradlew testDebugUnitTest` from `example/android/`.
@@ -25,5 +27,19 @@ internal class WifiManagementPluginTest {
         assertNull(WifiManagementPlugin.knownBssid(""))
         assertNull(WifiManagementPlugin.knownBssid("02:00:00:00:00:00"))
         assertEquals("aa:bb:cc:00:00:01", WifiManagementPlugin.knownBssid("AA:BB:CC:00:00:01"))
+    }
+
+    @Test
+    fun isSameAccessPoint_needsTheExactRouter() {
+        val ssid = "AndroidWifi"
+        val bssid = "02:15:b2:00:00:01"
+        // Android quotes the SSID and may report the BSSID in upper case.
+        assertTrue(WifiManagementPlugin.isSameAccessPoint("\"AndroidWifi\"", "02:15:B2:00:00:01", ssid, bssid))
+        // Same SSID, another router: a specifier request is still needed.
+        assertFalse(WifiManagementPlugin.isSameAccessPoint("\"AndroidWifi\"", "02:15:b2:00:00:02", ssid, bssid))
+        // Redacted (no location permission) or not connected: unknown, so no.
+        assertFalse(WifiManagementPlugin.isSameAccessPoint("\"AndroidWifi\"", "02:00:00:00:00:00", ssid, bssid))
+        assertFalse(WifiManagementPlugin.isSameAccessPoint("<unknown ssid>", null, ssid, bssid))
+        assertFalse(WifiManagementPlugin.isSameAccessPoint("\"Other\"", bssid, ssid, bssid))
     }
 }

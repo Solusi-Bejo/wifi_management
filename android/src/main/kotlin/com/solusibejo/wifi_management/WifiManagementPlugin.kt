@@ -37,7 +37,9 @@ import io.flutter.plugin.common.PluginRegistry
  *
  * Android 10+ (API 29) only. Below API 29 the plugin reports `unsupported`.
  * - Regular app: a [WifiNetworkSpecifier] request (app-scoped); the device's
- *   saved Wi-Fi networks are untouched.
+ *   saved Wi-Fi networks are untouched. If the device is already on exactly
+ *   that SSID + BSSID, its own connection is used instead, so the request
+ *   does not tear it down.
  * - Device Owner: the router is written to the device's saved Wi-Fi networks
  *   with its BSSID locked and made the only enabled one, so the device itself
  *   joins it; [release] disables it and [forgetSystemNetwork] removes it.
@@ -304,6 +306,14 @@ class WifiManagementPlugin :
 
         if (isDeviceOwner()) {
             connectSystem(requestId, ssid, bssid, request.security, request.password)
+            return
+        }
+
+        // Already on exactly this router: a specifier request would take the
+        // only Wi-Fi radio away from the device's own connection (and its
+        // internet) to rejoin the same access point app-only.
+        if (isJoined(ssid, bssid)) {
+            watchSystemNetwork(requestId, ssid, bssid, join = null)
             return
         }
 
@@ -607,7 +617,35 @@ class WifiManagementPlugin :
             return
         }
         systemNetworkId = netId
+        watchSystemNetwork(requestId, ssid, bssid) {
+            wifiManager.enableNetwork(netId, true) // true: disable the others
+            wifiManager.reconnect()
+        }
+    }
 
+    /**
+     * True when the device's own Wi-Fi connection is on [ssid] at [bssid].
+     * Needs the location permission and Location Services, which [connect]
+     * has already checked.
+     */
+    @Suppress("DEPRECATION")
+    private fun isJoined(ssid: String, bssid: String): Boolean {
+        val info = wifiManager.connectionInfo ?: return false
+        return isSameAccessPoint(info.ssid, info.bssid, ssid, bssid)
+    }
+
+    /**
+     * Follows the device's own Wi-Fi connection: binds once it shows
+     * [bssid], reports a later move to another BSSID and the loss of the
+     * link. [join] makes the device go there (Device Owner path); null means
+     * it is already there, and nothing about the device's networks changes.
+     */
+    private fun watchSystemNetwork(
+        requestId: Long,
+        ssid: String,
+        bssid: String,
+        join: (() -> Unit)?,
+    ) {
         val callback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SystemNetworkCallback(
                 requestId,
@@ -626,8 +664,7 @@ class WifiManagementPlugin :
                 .build(),
             callback,
         )
-        wifiManager.enableNetwork(netId, true) // true: disable the others
-        wifiManager.reconnect()
+        join?.invoke()
 
         val timeout = Runnable {
             if (networkCallback !== callback) return@Runnable
@@ -653,10 +690,11 @@ class WifiManagementPlugin :
     }
 
     /**
-     * Android itself (re)joins the saved network; this waits until the
-     * requested BSSID shows up, binds, and afterwards treats a different
-     * BSSID on that network as a mismatch. Until then, another router (the
-     * device leaving the previous one) is not a failure: the timeout decides.
+     * Android itself (re)joins the saved network, or is already on it; this
+     * waits until the requested BSSID shows up, binds, and afterwards treats a
+     * different BSSID on that network as a mismatch. Until then, another
+     * router (the device leaving the previous one) is not a failure: the
+     * timeout decides.
      */
     private inner class SystemNetworkCallback : ConnectivityManager.NetworkCallback {
         private val requestId: Long
@@ -927,6 +965,19 @@ class WifiManagementPlugin :
             capabilities.contains("WEP") || capabilities.contains("OWE") -> "unsupported"
             else -> "open"
         }
+
+        /**
+         * Whether the connection info's [rawSsid] (quoted by Android) and
+         * [rawBssid] name the requested [ssid] and lower-case [bssid]. A
+         * redacted BSSID never matches.
+         */
+        internal fun isSameAccessPoint(
+            rawSsid: String?,
+            rawBssid: String?,
+            ssid: String,
+            bssid: String,
+        ): Boolean = knownBssid(rawBssid) == bssid &&
+            rawSsid?.removeSurrounding("\"") == ssid
 
         /** Null for an empty or redacted (`02:00:00:00:00:00`) BSSID. */
         internal fun knownBssid(raw: String?): String? =

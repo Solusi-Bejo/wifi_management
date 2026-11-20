@@ -1,3 +1,13 @@
+## 0.3.2
+
+* Android, regular app: when the device is already connected to exactly the
+  requested SSID + BSSID, `connect` now uses that connection (verify, bind,
+  watch for loss) instead of a `WifiNetworkSpecifier` request. The request
+  took the only Wi-Fi radio away from the device's own connection to rejoin
+  the same router app-only, so the whole device lost internet while the app
+  held it (seen on the emulator's `AndroidWifi`). A device on another router
+  still gets the specifier request.
+
 ## 0.3.1
 
 * Provide device admin receiver

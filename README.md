@@ -237,6 +237,11 @@ class MyConfigRepository implements WifiConfigRepository {
 - **Android request without internet capability.** The request drops
   `NET_CAPABILITY_INTERNET` so the specifier matches before validation; the
   binding still uses whatever the router provides.
+- **Already on the router.** When the device's own Wi-Fi is already on the
+  requested SSID + BSSID, the plugin binds to that connection instead of
+  making a specifier request. On single-radio devices such a request would
+  drop the device's connection (and its internet) to rejoin the same router
+  for the app only.
 - **One request at a time.** Every `connect` releases the previous request.
 - **iOS is best effort.** iOS can still pick another router with the same SSID;
   the plugin detects and reports it (`WifiFailure.bssidMismatch`) and retries,
