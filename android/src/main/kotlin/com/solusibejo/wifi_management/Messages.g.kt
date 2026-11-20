@@ -576,6 +576,13 @@ interface WifiManagementHostApi {
   /** Starts the request; the outcome arrives on [WifiManagementEventApi]. */
   fun connect(request: PlatformConnectRequest)
   fun disconnect()
+  /**
+   * Removes every network saved in the system Wi-Fi settings under [ssid],
+   * which also drops the device's own connection to it. Android only, and
+   * only when the app is the Device Owner. Returns `removed`, `not_found`,
+   * `not_device_owner`, `unsupported` or `failed`.
+   */
+  fun forgetSystemNetwork(ssid: String): String
   fun openLocationSettings()
   fun openAppSettings()
 
@@ -679,6 +686,23 @@ interface WifiManagementHostApi {
             val wrapped: List<Any?> = try {
               api.disconnect()
               listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.forgetSystemNetwork$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val ssidArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              listOf(api.forgetSystemNetwork(ssidArg))
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)
             }

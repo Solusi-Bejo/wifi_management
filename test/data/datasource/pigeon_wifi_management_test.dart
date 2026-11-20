@@ -56,6 +56,11 @@ class _FakeHostApi extends WifiManagementHostApi {
 
   @override
   Future<void> disconnect() async => disconnects++;
+
+  String forgetAnswer = 'not_device_owner';
+
+  @override
+  Future<String> forgetSystemNetwork(String ssid) async => forgetAnswer;
 }
 
 void main() {
@@ -138,6 +143,18 @@ void main() {
     expect(result.accessPoints.single, routerA);
   });
 
+  test('forgetSystemNetwork maps the host code; unknown codes fail', () async {
+    expect(
+      await platform.forgetSystemNetwork('SSID001'),
+      WifiForgetResult.notDeviceOwner,
+    );
+    api.forgetAnswer = 'something_new';
+    expect(
+      await platform.forgetSystemNetwork('SSID001'),
+      WifiForgetResult.failed,
+    );
+  });
+
   test('an unsupported host never calls the platform', () async {
     final offHost = PigeonWifiManagement(api: api, isHostSupported: false);
 
@@ -146,6 +163,10 @@ void main() {
     expect(
       await offHost.connect(configFor(routerA)),
       const WifiConnectResult.failed(WifiFailure.unsupported),
+    );
+    expect(
+      await offHost.forgetSystemNetwork('SSID001'),
+      WifiForgetResult.unsupported,
     );
     expect(api.requests, isEmpty);
   });

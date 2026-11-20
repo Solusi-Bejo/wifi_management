@@ -1,6 +1,7 @@
 import '../../domain/entity/wifi_capabilities.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_connect_result.dart';
+import '../../domain/entity/wifi_forget_result.dart';
 import '../../domain/entity/wifi_network_event.dart';
 import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/entity/wifi_scan_result.dart';
@@ -32,6 +33,10 @@ class WifiRepositoryImpl implements WifiRepository {
 
   @override
   Future<void> disconnect() => _platform.disconnect();
+
+  @override
+  Future<WifiForgetResult> forgetSystemNetwork(String ssid) =>
+      _platform.forgetSystemNetwork(ssid);
 
   @override
   Stream<WifiNetworkEvent> get events => _platform.events;

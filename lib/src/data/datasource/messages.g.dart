@@ -637,6 +637,31 @@ class WifiManagementHostApi {
     );
   }
 
+  /// Removes every network saved in the system Wi-Fi settings under [ssid],
+  /// which also drops the device's own connection to it. Android only, and
+  /// only when the app is the Device Owner. Returns `removed`, `not_found`,
+  /// `not_device_owner`, `unsupported` or `failed`.
+  Future<String> forgetSystemNetwork(String ssid) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.wifi_management.WifiManagementHostApi.forgetSystemNetwork$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[ssid],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as String;
+  }
+
   Future<void> openLocationSettings() async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openLocationSettings$pigeonVar_messageChannelSuffix';

@@ -222,6 +222,10 @@ public class WifiManagementPlugin: NSObject, FlutterPlugin, WifiManagementHostAp
 
   func disconnect() throws { release() }
 
+  /// iOS lets an app remove only the configurations it applied itself
+  /// (`release` already does that); networks the user saved are out of reach.
+  func forgetSystemNetwork(ssid: String) throws -> String { "unsupported" }
+
   /// Forgets the configuration this plugin applied. Idempotent.
   private func release() {
     stopMonitoring()

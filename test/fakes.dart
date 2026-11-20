@@ -37,6 +37,10 @@ class FakeWifiPlatform extends WifiManagementPlatform
   final connectCalls = <WifiConfig>[];
   final openedSettings = <String>[];
   int disconnectCalls = 0;
+  final forgetCalls = <String>[];
+
+  /// Answer of [forgetSystemNetwork]; null throws, as a broken host would.
+  WifiForgetResult? forgetResult = WifiForgetResult.removed;
   int permissionRequests = 0;
   final _events = StreamController<WifiNetworkEvent>.broadcast();
 
@@ -72,6 +76,12 @@ class FakeWifiPlatform extends WifiManagementPlatform
 
   @override
   Future<void> disconnect() async => disconnectCalls++;
+
+  @override
+  Future<WifiForgetResult> forgetSystemNetwork(String ssid) async {
+    forgetCalls.add(ssid);
+    return forgetResult ?? (throw StateError('host failed'));
+  }
 
   @override
   Stream<WifiNetworkEvent> get events => _events.stream;

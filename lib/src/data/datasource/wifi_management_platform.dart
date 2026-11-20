@@ -3,6 +3,7 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import '../../domain/entity/wifi_capabilities.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_connect_result.dart';
+import '../../domain/entity/wifi_forget_result.dart';
 import '../../domain/entity/wifi_network_event.dart';
 import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/entity/wifi_scan_result.dart';
@@ -49,6 +50,14 @@ abstract class WifiManagementPlatform extends PlatformInterface {
   /// Releases the network request (and, on Android, the process binding).
   Future<void> disconnect() =>
       throw UnimplementedError('disconnect() has not been implemented.');
+
+  /// Removes [ssid] from the device's saved Wi-Fi networks, which also drops
+  /// the device's own connection to it. Android needs the app to be the
+  /// Device Owner.
+  Future<WifiForgetResult> forgetSystemNetwork(String ssid) =>
+      throw UnimplementedError(
+        'forgetSystemNetwork() has not been implemented.',
+      );
 
   /// Changes of the request made by the latest [connect], notably
   /// [WifiNetworkEventType.lost] after it was connected.

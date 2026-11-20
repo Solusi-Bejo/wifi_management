@@ -82,6 +82,7 @@ The `example/` app scans, lets you pick a router, and shows the live state.
 | Verify the joined BSSID | ✅ | ✅ after the join; mismatch is reported and the configuration removed | ❌ |
 | Bind the app's traffic to that network | ✅ `bindProcessToNetwork` | ❌ | ❌ |
 | Detect a lost link | ✅ | ✅ (path monitor + polling) | ❌ |
+| Device's own Wi-Fi follows connect / disconnect / reset (saved network, BSSID locked) | ✅ Device Owner only | ❌ | ❌ |
 
 `GetWifiCapabilities(WifiRepositoryImpl())()` reports this at
 runtime. Unsupported platforms answer `WifiFailure.unsupported` /
@@ -100,6 +101,32 @@ Nothing to add: the plugin's manifest merges `ACCESS_WIFI_STATE`,
 Services must be on to scan and to read the joined BSSID.
 
 The first join to a router may show a system approval dialog.
+
+**Device Owner (optional).** A regular app joins through an app-scoped
+`WifiNetworkSpecifier` request: only the app uses the router, and the
+device's saved Wi-Fi networks are never touched, so a router the user saved in
+Settings keeps the device on it after `reset()`. Since Android 10 only a
+Device Owner (or system) app may edit saved networks. As Device Owner the
+plugin instead:
+
+| Action | Device's saved Wi-Fi networks |
+|---|---|
+| `connect` / retry | router saved with its BSSID locked, enabled alone; the device joins it |
+| link lost, retry pending | disabled until the next attempt |
+| new router with another SSID verified | old router removed |
+| new router never verified | removed again (unless it shares the stored router's SSID) |
+| `reset()` | removed; the device leaves it |
+
+To get there, declare a `DeviceAdminReceiver`, then on a device without
+accounts run
+
+```sh
+adb shell dpm set-device-owner <applicationId>/<receiver class>
+```
+
+Without it `reset()` returns `WifiForgetResult.notDeviceOwner`; tell the user
+to forget the network in Settings. A Device Owner app cannot be uninstalled
+normally: it takes a factory reset or `DevicePolicyManager.clearDeviceOwnerApp`.
 
 ### iOS
 
@@ -135,7 +162,9 @@ await manager.connectNew(
   ),
 );
 
-await manager.reset(); // disconnect and forget
+// Disconnect and forget; on Android the Device Owner also removes the
+// router from the device's saved networks.
+final forgotten = await manager.reset();
 ```
 
 The router is saved only after its BSSID is verified. A lost link retries

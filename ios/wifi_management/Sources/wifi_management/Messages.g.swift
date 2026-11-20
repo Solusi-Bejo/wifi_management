@@ -562,6 +562,11 @@ protocol WifiManagementHostApi {
   /// Starts the request; the outcome arrives on [WifiManagementEventApi].
   func connect(request: PlatformConnectRequest) throws
   func disconnect() throws
+  /// Removes every network saved in the system Wi-Fi settings under [ssid],
+  /// which also drops the device's own connection to it. Android only, and
+  /// only when the app is the Device Owner. Returns `removed`, `not_found`,
+  /// `not_device_owner`, `unsupported` or `failed`.
+  func forgetSystemNetwork(ssid: String) throws -> String
   func openLocationSettings() throws
   func openAppSettings() throws
 }
@@ -657,6 +662,25 @@ class WifiManagementHostApiSetup {
       }
     } else {
       disconnectChannel.setMessageHandler(nil)
+    }
+    /// Removes every network saved in the system Wi-Fi settings under [ssid],
+    /// which also drops the device's own connection to it. Android only, and
+    /// only when the app is the Device Owner. Returns `removed`, `not_found`,
+    /// `not_device_owner`, `unsupported` or `failed`.
+    let forgetSystemNetworkChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.forgetSystemNetwork\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      forgetSystemNetworkChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let ssidArg = args[0] as! String
+        do {
+          let result = try api.forgetSystemNetwork(ssid: ssidArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      forgetSystemNetworkChannel.setMessageHandler(nil)
     }
     let openLocationSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.wifi_management.WifiManagementHostApi.openLocationSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

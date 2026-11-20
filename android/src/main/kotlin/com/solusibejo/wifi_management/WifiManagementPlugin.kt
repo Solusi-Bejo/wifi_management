@@ -2,6 +2,7 @@ package com.solusibejo.wifi_management
 
 import android.Manifest
 import android.app.Activity
+import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,6 +17,7 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.net.wifi.ScanResult
 // import android.net.wifi.WifiConfiguration // parked Android 7–9 path
+import android.net.wifi.WifiConfiguration // Device Owner system-network path
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
@@ -33,8 +35,12 @@ import io.flutter.plugin.common.PluginRegistry
  * Wi-Fi pinning: scan, join an exact SSID + BSSID, verify the BSSID Android
  * actually joined, and bind the whole process to that network.
  *
- * Android 10+ (API 29) only: a [WifiNetworkSpecifier] request (app-scoped).
- * Below API 29 the plugin reports `unsupported`.
+ * Android 10+ (API 29) only. Below API 29 the plugin reports `unsupported`.
+ * - Regular app: a [WifiNetworkSpecifier] request (app-scoped); the device's
+ *   saved Wi-Fi networks are untouched.
+ * - Device Owner: the router is written to the device's saved Wi-Fi networks
+ *   with its BSSID locked and made the only enabled one, so the device itself
+ *   joins it; [release] disables it and [forgetSystemNetwork] removes it.
  *
  * The Android 7–9 path (a `WifiConfiguration` with its `BSSID` locked, added to
  * the system Wi-Fi list) is parked in comments below, not deleted, and can be
@@ -62,6 +68,10 @@ class WifiManagementPlugin :
     private var activityBinding: ActivityPluginBinding? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var pendingPermission: ((Result<Boolean>) -> Unit)? = null
+
+    // Device Owner path: the saved system network in use, and its deadline.
+    private var systemNetworkId: Int? = null
+    private var systemTimeout: Runnable? = null
 
     // Parked Android 7–9 path: the system network this plugin added, and its deadline.
     // private var legacyNetworkId: Int? = null
@@ -292,6 +302,11 @@ class WifiManagementPlugin :
             return
         }
 
+        if (isDeviceOwner()) {
+            connectSystem(requestId, ssid, bssid, request.security, request.password)
+            return
+        }
+
         // Parked Android 7–9 path:
         // if (!usesSpecifier()) {
         //     connectLegacy(requestId, ssid, bssid, request.security, request.password)
@@ -340,6 +355,34 @@ class WifiManagementPlugin :
     }
 
     override fun disconnect() = release()
+
+    /**
+     * Removes every saved system network named [ssid]. Releasing the
+     * specifier request alone does not help when the same router is also
+     * saved in Settings: the device rejoins it by itself.
+     *
+     * `getConfiguredNetworks` and `removeNetwork` always fail for apps that
+     * target API 29+, except for Device Owner, Profile Owner and system apps,
+     * so anything else gets `not_device_owner` without trying.
+     */
+    @Suppress("DEPRECATION")
+    override fun forgetSystemNetwork(ssid: String): String {
+        if (!::wifiManager.isInitialized) return "unsupported"
+        if (!isDeviceOwner()) return "not_device_owner"
+        return try {
+            val saved = savedNetworks(ssid)
+            if (saved.any { it.networkId == systemNetworkId }) release()
+            when {
+                saved.isEmpty() -> "not_found"
+                // Removing the current network also disconnects from it.
+                saved.all { wifiManager.removeNetwork(it.networkId) } -> "removed"
+                else -> "failed"
+            }
+        } catch (e: SecurityException) {
+            // Location permission missing: the saved list is not readable.
+            "failed"
+        }
+    }
 
     /**
      * The BSSID Android reports must equal the one requested before the process
@@ -451,10 +494,21 @@ class WifiManagementPlugin :
         }
     }
 
-    /** Drops the active request and the process binding. Idempotent. */
+    /**
+     * Drops the active request and the process binding. Idempotent. On the
+     * Device Owner path the saved network is disabled too, so the device
+     * leaves it; it stays saved until [forgetSystemNetwork].
+     */
     private fun release() {
         if (!::connectivityManager.isInitialized) return
         connectivityManager.bindProcessToNetwork(null)
+        systemTimeout?.let(mainHandler::removeCallbacks)
+        systemTimeout = null
+        systemNetworkId?.let {
+            @Suppress("DEPRECATION")
+            wifiManager.disableNetwork(it)
+        }
+        systemNetworkId = null
         // Parked Android 7–9 path:
         // legacyTimeout?.let(mainHandler::removeCallbacks)
         // legacyTimeout = null
@@ -463,6 +517,212 @@ class WifiManagementPlugin :
         val callback = networkCallback ?: return
         networkCallback = null
         runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+    }
+
+    // ---------------------------------------------------------------------
+    // Device Owner path: the router as a saved system network (API 29+)
+    // ---------------------------------------------------------------------
+
+    /**
+     * `addNetwork`, `updateNetwork`, `enableNetwork`, `disableNetwork` and
+     * `getConfiguredNetworks` always fail for apps that target API 29+, except
+     * for Device Owner, Profile Owner and system apps.
+     */
+    private fun isDeviceOwner(): Boolean =
+        context.getSystemService(DevicePolicyManager::class.java)
+            ?.isDeviceOwnerApp(context.packageName) == true
+
+    @Suppress("DEPRECATION")
+    private fun savedNetworks(ssid: String): List<WifiConfiguration> =
+        wifiManager.configuredNetworks.orEmpty().filter { it.SSID == "\"$ssid\"" }
+
+    /** Null for a security this path cannot express. */
+    @Suppress("DEPRECATION")
+    private fun systemConfig(
+        ssid: String,
+        bssid: String,
+        security: String,
+        password: String,
+    ): WifiConfiguration? = WifiConfiguration().apply {
+        SSID = "\"$ssid\""
+        // Restricts association to this one access point.
+        BSSID = bssid
+        val modern = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+        when (security) {
+            "wpa2" -> {
+                preSharedKey = "\"$password\""
+                if (modern) setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK)
+                else allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
+            }
+            "wpa3" -> {
+                preSharedKey = "\"$password\""
+                if (modern) {
+                    setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE)
+                } else {
+                    // API 29: the framework turns on PMF for SAE by itself.
+                    allowedKeyManagement.set(WifiConfiguration.KeyMgmt.SAE)
+                }
+            }
+            "open" ->
+                if (modern) setSecurityParams(WifiConfiguration.SECURITY_TYPE_OPEN)
+                else allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
+            else -> return null
+        }
+    }
+
+    /**
+     * Saves the router (one entry per SSID, so the BSSID lock of an earlier
+     * router with the same SSID is overwritten), enables it alone, and waits
+     * until the device reports the requested BSSID before binding.
+     */
+    @Suppress("DEPRECATION")
+    private fun connectSystem(
+        requestId: Long,
+        ssid: String,
+        bssid: String,
+        security: String,
+        password: String,
+    ) {
+        val config = systemConfig(ssid, bssid, security, password)
+        if (config == null) {
+            emit(requestId, "error", failure = "invalid_config")
+            return
+        }
+        val netId = try {
+            val saved = savedNetworks(ssid)
+            // Duplicates would let the device pick one without our lock.
+            saved.drop(1).forEach { wifiManager.removeNetwork(it.networkId) }
+            val existing = saved.firstOrNull()
+            if (existing != null) {
+                config.networkId = existing.networkId
+                wifiManager.updateNetwork(config)
+            } else {
+                wifiManager.addNetwork(config)
+            }
+        } catch (e: SecurityException) {
+            -1
+        }
+        if (netId == -1) {
+            emit(requestId, "error", failure = "invalid_config")
+            return
+        }
+        systemNetworkId = netId
+
+        val callback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            SystemNetworkCallback(
+                requestId,
+                ssid,
+                bssid,
+                ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO,
+            )
+        } else {
+            SystemNetworkCallback(requestId, ssid, bssid)
+        }
+        networkCallback = callback
+        emit(requestId, "connecting", ssid = ssid, bssid = bssid)
+        connectivityManager.registerNetworkCallback(
+            NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build(),
+            callback,
+        )
+        wifiManager.enableNetwork(netId, true) // true: disable the others
+        wifiManager.reconnect()
+
+        val timeout = Runnable {
+            if (networkCallback !== callback) return@Runnable
+            val actual = currentBssid(null)
+            release()
+            if (actual != null && actual != bssid) {
+                emit(requestId, "error", ssid = ssid, bssid = actual, failure = "bssid_mismatch")
+            } else {
+                emit(requestId, "unavailable", ssid = ssid, bssid = bssid)
+            }
+        }
+        systemTimeout = timeout
+        mainHandler.postDelayed(timeout, REQUEST_TIMEOUT_MS.toLong())
+    }
+
+    /** The joined BSSID: from [caps] on API 31+, else the connection info. */
+    private fun currentBssid(caps: NetworkCapabilities?): String? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && caps != null) {
+            return knownBssid((caps.transportInfo as? WifiInfo)?.bssid)
+        }
+        @Suppress("DEPRECATION")
+        return knownBssid(wifiManager.connectionInfo?.bssid)
+    }
+
+    /**
+     * Android itself (re)joins the saved network; this waits until the
+     * requested BSSID shows up, binds, and afterwards treats a different
+     * BSSID on that network as a mismatch. Until then, another router (the
+     * device leaving the previous one) is not a failure: the timeout decides.
+     */
+    private inner class SystemNetworkCallback : ConnectivityManager.NetworkCallback {
+        private val requestId: Long
+        private val ssid: String
+        private val bssid: String
+
+        // NetworkCallback(int flags) only exists from API 31.
+        constructor(requestId: Long, ssid: String, bssid: String) : super() {
+            this.requestId = requestId
+            this.ssid = ssid
+            this.bssid = bssid
+        }
+
+        @RequiresApi(Build.VERSION_CODES.S)
+        constructor(
+            requestId: Long,
+            ssid: String,
+            bssid: String,
+            flags: Int,
+        ) : super(flags) {
+            this.requestId = requestId
+            this.ssid = ssid
+            this.bssid = bssid
+        }
+
+        private var verifiedNetwork: Network? = null
+
+        override fun onAvailable(network: Network) {
+            mainHandler.post { check(network, null) }
+        }
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            mainHandler.post { check(network, caps) }
+        }
+
+        private fun check(network: Network, caps: NetworkCapabilities?) {
+            if (networkCallback !== this) return
+            val actual = currentBssid(caps) ?: return
+            val verified = verifiedNetwork
+            if (verified != null) {
+                if (network == verified && actual != bssid) {
+                    release()
+                    emit(requestId, "error", ssid = ssid, bssid = actual, failure = "bssid_mismatch")
+                }
+                return
+            }
+            if (actual != bssid) return
+            if (connectivityManager.bindProcessToNetwork(network)) {
+                verifiedNetwork = network
+                systemTimeout?.let(mainHandler::removeCallbacks)
+                systemTimeout = null
+                emit(requestId, "connected", ssid = ssid, bssid = actual)
+            } else {
+                release()
+                emit(requestId, "error", ssid = ssid, failure = "bind_failed")
+            }
+        }
+
+        override fun onLost(network: Network) {
+            mainHandler.post {
+                if (networkCallback !== this || network != verifiedNetwork) return@post
+                verifiedNetwork = null
+                connectivityManager.bindProcessToNetwork(null)
+                emit(requestId, "lost", ssid = ssid, bssid = bssid)
+            }
+        }
     }
 
     // ---------------------------------------------------------------------

@@ -172,6 +172,8 @@ void main() {
       expect(manager.state.config, isNull);
       expect(store.stored, isNull);
       expect(platform.disconnectCalls, 2);
+      // The device's own saved copy goes too, or it would rejoin by itself.
+      expect(platform.forgetCalls, [routerA.ssid]);
 
       final calls = platform.connectCalls.length;
       async.elapse(const Duration(minutes: 5));
@@ -179,6 +181,102 @@ void main() {
 
       manager.dispose();
       async.flushMicrotasks();
+    });
+  });
+
+  group('reset reports whether the device forgot the router', () {
+    test('passes the platform answer through', () async {
+      store.stored = configFor(routerA);
+      platform.forgetResult = WifiForgetResult.notDeviceOwner;
+      final manager = buildManager(platform, store);
+      await manager.start();
+
+      expect(await manager.reset(), WifiForgetResult.notDeviceOwner);
+      expect(store.stored, isNull);
+      await manager.dispose();
+    });
+
+    test('a failing host still clears the stored router', () async {
+      store.stored = configFor(routerA);
+      platform.forgetResult = null;
+      final manager = buildManager(platform, store);
+      await manager.start();
+
+      expect(await manager.reset(), WifiForgetResult.failed);
+      expect(store.stored, isNull);
+      await manager.dispose();
+    });
+
+    test('nothing stored: nothing to forget', () async {
+      final manager = buildManager(platform, store);
+      await manager.start();
+
+      expect(await manager.reset(), WifiForgetResult.notFound);
+      expect(platform.forgetCalls, isEmpty);
+      await manager.dispose();
+    });
+  });
+
+  group("the device's saved networks follow the stored router", () {
+    const otherSsid = WifiAccessPoint(
+      ssid: 'DEPOT',
+      bssid: 'aa:bb:cc:00:00:09',
+      rssi: -55,
+      security: WifiSecurity.wpa2,
+    );
+
+    test('a router with another SSID replaces the old one there', () async {
+      store.stored = configFor(routerA);
+      final manager = buildManager(platform, store);
+      await manager.start();
+
+      await manager.connectNew(configFor(otherSsid));
+
+      expect(manager.state.isVerified, isTrue);
+      expect(platform.forgetCalls, [routerA.ssid]);
+      await manager.dispose();
+    });
+
+    test(
+      'a same-SSID router is rewritten in place, nothing forgotten',
+      () async {
+        store.stored = configFor(routerA);
+        final manager = buildManager(platform, store);
+        await manager.start();
+
+        await manager.connectNew(configFor(routerB));
+
+        expect(platform.forgetCalls, isEmpty);
+        await manager.dispose();
+      },
+    );
+
+    test('a first router that never verifies is removed again', () async {
+      platform.connectResults.add(
+        const WifiConnectResult.failed(WifiFailure.bssidMismatch),
+      );
+      final manager = buildManager(platform, store);
+      await manager.start();
+
+      await manager.connectNew(configFor(otherSsid));
+
+      expect(store.stored, isNull);
+      expect(platform.forgetCalls, [otherSsid.ssid]);
+      await manager.dispose();
+    });
+
+    test('a failed same-SSID candidate keeps the stored entry', () async {
+      store.stored = configFor(routerA);
+      final manager = buildManager(platform, store);
+      await manager.start();
+      platform.connectResults.add(
+        const WifiConnectResult.failed(WifiFailure.bssidMismatch),
+      );
+
+      await manager.connectNew(configFor(routerB));
+
+      expect(platform.forgetCalls, isEmpty);
+      await manager.dispose();
     });
   });
 

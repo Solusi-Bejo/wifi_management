@@ -1,6 +1,7 @@
 import '../entity/wifi_capabilities.dart';
 import '../entity/wifi_config.dart';
 import '../entity/wifi_connect_result.dart';
+import '../entity/wifi_forget_result.dart';
 import '../entity/wifi_network_event.dart';
 import '../entity/wifi_readiness.dart';
 import '../entity/wifi_scan_result.dart';
@@ -22,6 +23,10 @@ abstract interface class WifiRepository {
   Future<WifiConnectResult> connect(WifiConfig config);
 
   Future<void> disconnect();
+
+  /// Removes [ssid] from the device's saved Wi-Fi networks, so the device
+  /// itself stops joining it (Android: Device Owner only).
+  Future<WifiForgetResult> forgetSystemNetwork(String ssid);
 
   /// Changes of the request made by the latest [connect].
   Stream<WifiNetworkEvent> get events;

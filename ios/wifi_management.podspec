@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'wifi_management'
-  s.version          = '0.1.0'
+  s.version          = '0.3.0'
   s.summary          = 'Pin a device to one exact Wi-Fi router (SSID + BSSID).'
   s.description      = <<-DESC
 Joins a Wi-Fi network by SSID and verifies the BSSID it joined (best effort on iOS).

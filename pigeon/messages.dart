@@ -119,6 +119,12 @@ abstract class WifiManagementHostApi {
 
   void disconnect();
 
+  /// Removes every network saved in the system Wi-Fi settings under [ssid],
+  /// which also drops the device's own connection to it. Android only, and
+  /// only when the app is the Device Owner. Returns `removed`, `not_found`,
+  /// `not_device_owner`, `unsupported` or `failed`.
+  String forgetSystemNetwork(String ssid);
+
   void openLocationSettings();
 
   void openAppSettings();

@@ -8,6 +8,7 @@ import '../../domain/entity/wifi_capabilities.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_connect_result.dart';
 import '../../domain/entity/wifi_failure.dart';
+import '../../domain/entity/wifi_forget_result.dart';
 import '../../domain/entity/wifi_network_event.dart';
 import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/entity/wifi_scan_result.dart';
@@ -179,6 +180,12 @@ class PigeonWifiManagement extends WifiManagementPlatform {
     _supersedePending();
     if (!_isHostSupported) return;
     await _api.disconnect();
+  }
+
+  @override
+  Future<WifiForgetResult> forgetSystemNetwork(String ssid) async {
+    if (!_isHostSupported) return WifiForgetResult.unsupported;
+    return WifiForgetResult.fromCode(await _api.forgetSystemNetwork(ssid));
   }
 
   @override

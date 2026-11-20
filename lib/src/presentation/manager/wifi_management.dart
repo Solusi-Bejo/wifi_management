@@ -5,6 +5,7 @@ import 'package:meta/meta.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_connect_result.dart';
 import '../../domain/entity/wifi_failure.dart';
+import '../../domain/entity/wifi_forget_result.dart';
 import '../../domain/entity/wifi_network_event.dart';
 import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/repository/wifi_config_repository.dart';
@@ -13,6 +14,7 @@ import '../../domain/usecase/check_wifi_readiness.dart';
 import '../../domain/usecase/clear_wifi_config.dart';
 import '../../domain/usecase/connect_wifi.dart';
 import '../../domain/usecase/disconnect_wifi.dart';
+import '../../domain/usecase/forget_system_wifi.dart';
 import '../../domain/usecase/load_wifi_config.dart';
 import '../../domain/usecase/save_wifi_config.dart';
 import '../../domain/usecase/watch_wifi_events.dart';
@@ -25,6 +27,12 @@ import 'wifi_retry_delay.dart';
 ///
 /// Scanning, capabilities and settings are separate use cases (`ScanWifi`,
 /// `GetWifiCapabilities`, `OpenWifiSettings`) over the same [WifiRepository].
+///
+/// With a [ForgetSystemWifi] (the default factory wires one) the device's own
+/// saved Wi-Fi networks follow along: a replaced router, a new router that
+/// never verified, and the router dropped by [reset] are removed from them.
+/// On Android this takes effect only when the app is the Device Owner, whose
+/// joins also go through the saved networks (see the plugin README).
 ///
 /// One request at a time: every attempt bumps a generation counter, and an
 /// answer that comes back for an older generation is dropped, as is a retry
@@ -41,6 +49,7 @@ class WifiManagement {
       checkReadiness: CheckWifiReadiness(wifiRepository),
       connectWifi: ConnectWifi(wifiRepository),
       disconnectWifi: DisconnectWifi(wifiRepository),
+      forgetSystemWifi: ForgetSystemWifi(wifiRepository),
       watchWifiEvents: WatchWifiEvents(wifiRepository),
       loadWifiConfig: LoadWifiConfig(configRepository),
       saveWifiConfig: SaveWifiConfig(configRepository),
@@ -58,6 +67,9 @@ class WifiManagement {
     required LoadWifiConfig loadWifiConfig,
     required SaveWifiConfig saveWifiConfig,
     required ClearWifiConfig clearWifiConfig,
+    // Optional so existing wiring keeps compiling; without it [reset] only
+    // releases the app's own request.
+    ForgetSystemWifi? forgetSystemWifi,
     Duration Function(int attempt) retryDelay = defaultWifiRetryDelay,
   }) : _checkReadiness = checkReadiness,
        _connectWifi = connectWifi,
@@ -66,6 +78,7 @@ class WifiManagement {
        _loadWifiConfig = loadWifiConfig,
        _saveWifiConfig = saveWifiConfig,
        _clearWifiConfig = clearWifiConfig,
+       _forgetSystemWifi = forgetSystemWifi,
        _retryDelay = retryDelay;
 
   final CheckWifiReadiness _checkReadiness;
@@ -75,6 +88,7 @@ class WifiManagement {
   final LoadWifiConfig _loadWifiConfig;
   final SaveWifiConfig _saveWifiConfig;
   final ClearWifiConfig _clearWifiConfig;
+  final ForgetSystemWifi? _forgetSystemWifi;
   final Duration Function(int attempt) _retryDelay;
 
   final _states = StreamController<WifiManagementState>.broadcast();
@@ -150,19 +164,39 @@ class WifiManagement {
   }
 
   /// Drops the link, forgets the stored router, and returns to "not set up".
-  Future<void> reset() async {
+  ///
+  /// Releasing the app's request is not enough when the same router is also
+  /// saved in the device's Wi-Fi settings: the device then rejoins it on its
+  /// own. So the router is removed from there too, which Android allows only
+  /// to the Device Owner; the result says whether that happened.
+  Future<WifiForgetResult> reset() async {
+    final ssid = (_state.config ?? _state.target)?.ssid;
     _generation++;
     _retryTimer?.cancel();
     _emit(const WifiManagementState(phase: WifiManagementPhase.notConfigured));
     await _release();
+    final forgotten = await _forgetSystemNetwork(ssid);
     try {
       await _clearWifiConfig();
     } catch (_) {
       _emit(_state.copyWith(failure: WifiFailure.storageFailed));
     }
+    return forgotten;
+  }
+
+  Future<WifiForgetResult> _forgetSystemNetwork(String? ssid) async {
+    final forget = _forgetSystemWifi;
+    if (forget == null) return WifiForgetResult.unsupported;
+    if (ssid == null || ssid.isEmpty) return WifiForgetResult.notFound;
+    try {
+      return await forget(ssid);
+    } catch (_) {
+      return WifiForgetResult.failed;
+    }
   }
 
   Future<void> _connect(WifiConfig target, {required bool save}) async {
+    final previous = _state.config;
     final generation = ++_generation;
     _retryTimer?.cancel();
     _emit(
@@ -189,11 +223,20 @@ class WifiManagement {
           } catch (_) {
             if (_disposed || generation != _generation) return;
             await _release();
+            if (previous?.ssid != target.ssid) {
+              await _forgetSystemNetwork(target.ssid);
+            }
             if (_disposed || generation != _generation) return;
             _fail(WifiFailure.storageFailed);
             return;
           }
           if (_disposed || generation != _generation) return;
+          // The device's saved copy of a replaced router would otherwise let
+          // it wander back there (same SSID: already overwritten in place).
+          if (previous != null && previous.ssid != target.ssid) {
+            await _forgetSystemNetwork(previous.ssid);
+            if (_disposed || generation != _generation) return;
+          }
         }
         _emit(
           WifiManagementState(
@@ -203,6 +246,13 @@ class WifiManagement {
           ),
         );
       case WifiConnectFailed(:final failure):
+        // A new router that never verified must not stay in the device's
+        // saved networks, unless it shares the stored router's SSID (that
+        // entry is the stored router's, rewritten on the next retry).
+        if (save && previous?.ssid != target.ssid) {
+          await _forgetSystemNetwork(target.ssid);
+          if (_disposed || generation != _generation) return;
+        }
         if (failure == WifiFailure.unsupported) {
           _emit(
             const WifiManagementState(phase: WifiManagementPhase.unsupported),

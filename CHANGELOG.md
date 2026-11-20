@@ -1,3 +1,24 @@
+## 0.3.0
+
+* **Device Owner on Android: the device's own Wi-Fi follows the plugin.**
+  `connect` saves the router in the device's Wi-Fi networks with its BSSID
+  locked and makes it the only enabled one, so the device itself joins it
+  (other apps use it too). Releasing the request disables it; a replaced
+  router, a new router that never verified, and `reset()` remove it. Without
+  Device Owner nothing changes: the app-scoped `WifiNetworkSpecifier` request
+  is used and the saved networks are left alone.
+* `WifiManagement.reset()` now also removes the router from the device's saved
+  Wi-Fi networks and returns a `WifiForgetResult`. Releasing the app's request
+  alone left the device connected whenever the same router was saved in
+  Settings, because the device rejoined it by itself.
+  * Android allows this only when the app is the **Device Owner**; otherwise
+    the result is `WifiForgetResult.notDeviceOwner` and the saved network
+    stays. iOS answers `unsupported`.
+* New: `ForgetSystemWifi` use case, `WifiRepository.forgetSystemNetwork` and
+  `WifiManagementPlatform.forgetSystemNetwork`.
+* **Breaking for custom `WifiRepository` implementations** (such as test
+  fakes): add `forgetSystemNetwork`.
+
 ## 0.2.1
 
 * README: install from pub.dev with `flutter pub add wifi_management`.
