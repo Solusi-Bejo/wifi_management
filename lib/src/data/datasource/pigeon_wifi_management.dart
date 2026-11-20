@@ -13,15 +13,15 @@ import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/entity/wifi_scan_result.dart';
 import '../mapper/platform_mapper.dart';
 import 'messages.g.dart';
-import 'wifi_manager_platform.dart';
+import 'wifi_management_platform.dart';
 
-/// [WifiManagerPlatform] over the Pigeon host API (Android and iOS).
+/// [WifiManagementPlatform] over the Pigeon host API (Android and iOS).
 ///
 /// Every [connect] gets a fresh request id; events of any older request are
 /// dropped here, so a late callback of a released request can never be read as
 /// the state of the current one.
-class PigeonWifiManager extends WifiManagerPlatform {
-  PigeonWifiManager({
+class PigeonWifiManagement extends WifiManagementPlatform {
+  PigeonWifiManagement({
     @visibleForTesting WifiManagementHostApi? api,
     @visibleForTesting Stream<PlatformNetworkEvent> Function()? eventSource,
     @visibleForTesting bool? isHostSupported,

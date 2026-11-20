@@ -61,12 +61,12 @@ class _FakeHostApi extends WifiManagementHostApi {
 void main() {
   late StreamController<PlatformNetworkEvent> events;
   late _FakeHostApi api;
-  late PigeonWifiManager platform;
+  late PigeonWifiManagement platform;
 
   setUp(() {
     events = StreamController<PlatformNetworkEvent>.broadcast();
     api = _FakeHostApi(events);
-    platform = PigeonWifiManager(
+    platform = PigeonWifiManagement(
       api: api,
       eventSource: () => events.stream,
       isHostSupported: true,
@@ -139,7 +139,7 @@ void main() {
   });
 
   test('an unsupported host never calls the platform', () async {
-    final offHost = PigeonWifiManager(api: api, isHostSupported: false);
+    final offHost = PigeonWifiManagement(api: api, isHostSupported: false);
 
     expect(await offHost.capabilities(), WifiCapabilities.none);
     expect(await offHost.checkReadiness(), WifiReadiness.unsupported);

@@ -27,7 +27,7 @@ void main() {
       final manager = buildManager(platform, store);
       await manager.start();
 
-      expect(manager.state.phase, WifiManagerPhase.notConfigured);
+      expect(manager.state.phase, WifiManagementPhase.notConfigured);
       expect(platform.connectCalls, isEmpty);
       await manager.dispose();
     });
@@ -38,7 +38,7 @@ void main() {
       final manager = buildManager(platform, store);
       await manager.start();
 
-      expect(manager.state.phase, WifiManagerPhase.unsupported);
+      expect(manager.state.phase, WifiManagementPhase.unsupported);
       expect(platform.connectCalls, isEmpty);
       await manager.dispose();
     });
@@ -49,7 +49,7 @@ void main() {
       await manager.start();
 
       expect(platform.connectCalls.single, configFor(routerB));
-      expect(manager.state.phase, WifiManagerPhase.connected);
+      expect(manager.state.phase, WifiManagementPhase.connected);
       expect(manager.state.actualBssid, routerB.bssid);
       expect(manager.state.isVerified, isTrue);
       await manager.dispose();
@@ -76,7 +76,7 @@ void main() {
 
       expect(store.saveCalls, 0);
       expect(platform.disconnectCalls, greaterThan(0));
-      expect(manager.state.phase, WifiManagerPhase.failed);
+      expect(manager.state.phase, WifiManagementPhase.failed);
       expect(manager.state.failure, WifiFailure.bssidMismatch);
       expect(manager.state.isVerified, isFalse);
       await manager.dispose();
@@ -98,16 +98,16 @@ void main() {
   test('every state change is streamed', () async {
     store.stored = configFor(routerA);
     final manager = buildManager(platform, store);
-    final phases = <WifiManagerPhase>[];
+    final phases = <WifiManagementPhase>[];
     manager.states.listen((state) => phases.add(state.phase));
 
     await manager.start();
     await Future<void>.delayed(Duration.zero);
 
     expect(phases, [
-      WifiManagerPhase.initial, // config loaded, not yet joined
-      WifiManagerPhase.connecting,
-      WifiManagerPhase.connected,
+      WifiManagementPhase.initial, // config loaded, not yet joined
+      WifiManagementPhase.connecting,
+      WifiManagementPhase.connected,
     ]);
     await manager.dispose();
   });
@@ -124,7 +124,7 @@ void main() {
       );
       platform.emit(lost);
       async.flushMicrotasks();
-      expect(manager.state.phase, WifiManagerPhase.retrying);
+      expect(manager.state.phase, WifiManagementPhase.retrying);
       expect(manager.state.isVerified, isFalse);
       expect(platform.disconnectCalls, 1);
 
@@ -168,7 +168,7 @@ void main() {
       async.flushMicrotasks();
 
       expect(manager.hasPendingRetry, isFalse);
-      expect(manager.state.phase, WifiManagerPhase.notConfigured);
+      expect(manager.state.phase, WifiManagementPhase.notConfigured);
       expect(manager.state.config, isNull);
       expect(store.stored, isNull);
       expect(platform.disconnectCalls, 2);

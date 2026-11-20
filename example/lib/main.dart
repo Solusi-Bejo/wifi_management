@@ -24,7 +24,7 @@ class _ExampleAppState extends State<ExampleApp> {
   late final _scanWifi = ScanWifi(_wifi);
 
   // A real app stores the router somewhere persistent (and encrypted).
-  late final WifiManager _manager = WifiManager(
+  late final WifiManagement _manager = WifiManagement(
     configRepository: widget.configRepository ?? InMemoryWifiConfigRepository(),
     wifiRepository: _wifi,
   );
@@ -100,7 +100,7 @@ class _ExampleAppState extends State<ExampleApp> {
           icon: const Icon(Icons.wifi_find),
           label: const Text('Scan'),
         ),
-        body: StreamBuilder<WifiManagerState>(
+        body: StreamBuilder<WifiManagementState>(
           stream: _manager.states,
           initialData: _manager.state,
           builder: (context, snapshot) {

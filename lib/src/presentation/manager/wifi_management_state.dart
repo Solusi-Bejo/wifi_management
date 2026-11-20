@@ -3,9 +3,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../domain/entity/wifi_config.dart';
 import '../../domain/entity/wifi_failure.dart';
 
-part 'wifi_manager_state.freezed.dart';
+part 'wifi_management_state.freezed.dart';
 
-enum WifiManagerPhase {
+enum WifiManagementPhase {
   /// `start()` has not finished reading the stored router yet.
   initial,
 
@@ -17,7 +17,7 @@ enum WifiManagerPhase {
   /// Joined and BSSID verified (and, on Android, the process is bound).
   connected,
 
-  /// Waiting [WifiManagerState.retryDelay] before the next attempt.
+  /// Waiting [WifiManagementState.retryDelay] before the next attempt.
   retrying,
 
   /// A new-router attempt failed and there is no stored router to fall back
@@ -26,11 +26,11 @@ enum WifiManagerPhase {
 }
 
 @freezed
-abstract class WifiManagerState with _$WifiManagerState {
-  const WifiManagerState._();
+abstract class WifiManagementState with _$WifiManagementState {
+  const WifiManagementState._();
 
-  const factory WifiManagerState({
-    @Default(WifiManagerPhase.initial) WifiManagerPhase phase,
+  const factory WifiManagementState({
+    @Default(WifiManagementPhase.initial) WifiManagementPhase phase,
 
     /// Stored (verified) router, if any.
     WifiConfig? config,
@@ -47,10 +47,10 @@ abstract class WifiManagerState with _$WifiManagerState {
     /// Consecutive failed attempts since the last verified connection.
     @Default(0) int retryAttempt,
     Duration? retryDelay,
-  }) = _WifiManagerState;
+  }) = _WifiManagementState;
 
   /// Connected to exactly the stored SSID + BSSID.
   bool get isVerified =>
-      phase == WifiManagerPhase.connected &&
+      phase == WifiManagementPhase.connected &&
       (config?.matchesBssid(actualBssid) ?? false);
 }

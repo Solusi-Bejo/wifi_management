@@ -6,21 +6,21 @@ import '../../domain/entity/wifi_connect_result.dart';
 import '../../domain/entity/wifi_network_event.dart';
 import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/entity/wifi_scan_result.dart';
-import 'pigeon_wifi_manager.dart';
+import 'pigeon_wifi_management.dart';
 
 /// Host side of `wifi_management`. Apps go through `WifiRepositoryImpl`;
 /// tests replace [instance] with a fake.
-abstract class WifiManagerPlatform extends PlatformInterface {
-  WifiManagerPlatform() : super(token: _token);
+abstract class WifiManagementPlatform extends PlatformInterface {
+  WifiManagementPlatform() : super(token: _token);
 
   static final Object _token = Object();
 
-  static WifiManagerPlatform _instance = PigeonWifiManager();
+  static WifiManagementPlatform _instance = PigeonWifiManagement();
 
-  /// Defaults to [PigeonWifiManager].
-  static WifiManagerPlatform get instance => _instance;
+  /// Defaults to [PigeonWifiManagement].
+  static WifiManagementPlatform get instance => _instance;
 
-  static set instance(WifiManagerPlatform instance) {
+  static set instance(WifiManagementPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }

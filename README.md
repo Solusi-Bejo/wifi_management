@@ -20,7 +20,7 @@ remembers it, and reconnects with backoff when the link drops.
 
 `GetWifiCapabilities(WifiRepositoryImpl())(const NoParams())` reports this at
 runtime. Unsupported platforms answer `WifiFailure.unsupported` /
-`WifiManagerPhase.unsupported`.
+`WifiManagementPhase.unsupported`.
 
 Works with Flutter **3.41 and newer** (Dart 3.11+), on AGP 8 (Kotlin Gradle
 Plugin) and AGP 9 (built-in Kotlin) apps.
@@ -50,7 +50,7 @@ The first join to a router may show a system approval dialog.
 ```dart
 import 'package:wifi_management/wifi_management.dart';
 
-final manager = WifiManager(
+final manager = WifiManagement(
   configRepository: MyConfigRepository(), // see below
   wifiRepository: WifiRepositoryImpl(),
 );
@@ -94,11 +94,11 @@ if (readiness == WifiReadiness.locationDisabled) {
 final scan = await ScanWifi(wifi)(const NoParams());
 ```
 
-Pass the same repository to `WifiManager(wifiRepository: wifi, ...)`.
+Pass the same repository to `WifiManagement(wifiRepository: wifi, ...)`.
 
 ### Storing the router
 
-`WifiManager` takes a `WifiConfigRepository`. Implement it over your app's
+`WifiManagement` takes a `WifiConfigRepository`. Implement it over your app's
 storage with `WifiConfig.toJson()` / `WifiConfig.fromJson()`:
 
 ```dart
@@ -132,18 +132,18 @@ class MyConfigRepository implements WifiConfigRepository {
 Replace the platform with a fake:
 
 ```dart
-class FakeWifi extends WifiManagerPlatform with MockPlatformInterfaceMixin {
+class FakeWifi extends WifiManagementPlatform with MockPlatformInterfaceMixin {
   // override capabilities, checkReadiness, scan, connect, events, ...
 }
 
-final manager = WifiManager(
+final manager = WifiManagement(
   configRepository: InMemoryWifiConfigRepository(),
   wifiRepository: WifiRepositoryImpl(platform: FakeWifi()),
 );
 ```
 
 Or implement `WifiRepository` directly, or build the use cases yourself
-and pass them to `WifiManager.withUseCases(...)`.
+and pass them to `WifiManagement.withUseCases(...)`.
 
 ## Code layout
 
@@ -152,5 +152,5 @@ lib/wifi_management.dart        public barrel
 lib/src/domain/                 entities, repository interfaces, use cases
 lib/src/data/                   platform interface, Pigeon datasource,
                                 mappers, repository implementations
-lib/src/presentation/manager/   WifiManager + WifiManagerState
+lib/src/presentation/manager/   WifiManagement + WifiManagementState
 ```

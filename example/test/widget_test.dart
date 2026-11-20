@@ -3,7 +3,7 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:wifi_management/wifi_management.dart';
 import 'package:wifi_management_example/main.dart';
 
-class _UnsupportedPlatform extends WifiManagerPlatform
+class _UnsupportedPlatform extends WifiManagementPlatform
     with MockPlatformInterfaceMixin {
   @override
   Future<WifiReadiness> checkReadiness() async => WifiReadiness.unsupported;

@@ -1,6 +1,6 @@
 import '../entity/wifi_config.dart';
 
-/// Where `WifiManager` keeps the pinned router. Implement it over your app's
+/// Where `WifiManagement` keeps the pinned router. Implement it over your app's
 /// storage; [WifiConfig.toJson]/[WifiConfig.fromJson] give the shape.
 ///
 /// The config contains the Wi-Fi password: prefer encrypted storage.

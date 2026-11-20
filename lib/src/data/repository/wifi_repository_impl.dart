@@ -5,14 +5,14 @@ import '../../domain/entity/wifi_network_event.dart';
 import '../../domain/entity/wifi_readiness.dart';
 import '../../domain/entity/wifi_scan_result.dart';
 import '../../domain/repository/wifi_repository.dart';
-import '../datasource/wifi_manager_platform.dart';
+import '../datasource/wifi_management_platform.dart';
 
 /// [WifiRepository] over the host platform.
 class WifiRepositoryImpl implements WifiRepository {
-  WifiRepositoryImpl({WifiManagerPlatform? platform})
-    : _platform = platform ?? WifiManagerPlatform.instance;
+  WifiRepositoryImpl({WifiManagementPlatform? platform})
+    : _platform = platform ?? WifiManagementPlatform.instance;
 
-  final WifiManagerPlatform _platform;
+  final WifiManagementPlatform _platform;
 
   @override
   Future<WifiCapabilities> capabilities() => _platform.capabilities();

@@ -25,7 +25,7 @@ WifiConfig configFor(WifiAccessPoint ap, {String password = 'secret123'}) =>
       password: password,
     );
 
-class FakeWifiPlatform extends WifiManagerPlatform
+class FakeWifiPlatform extends WifiManagementPlatform
     with MockPlatformInterfaceMixin {
   WifiReadiness readiness = WifiReadiness.ready;
   bool grantOnRequest = true;
@@ -104,10 +104,10 @@ class FakeWifiConfigRepository implements WifiConfigRepository {
   Future<void> clear() async => stored = null;
 }
 
-WifiManager buildManager(
+WifiManagement buildManager(
   FakeWifiPlatform platform,
   FakeWifiConfigRepository store,
-) => WifiManager(
+) => WifiManagement(
   configRepository: store,
   wifiRepository: WifiRepositoryImpl(platform: platform),
 );
