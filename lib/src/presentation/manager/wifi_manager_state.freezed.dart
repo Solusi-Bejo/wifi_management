@@ -3,7 +3,7 @@
 // ignore_for_file: type=lint
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
-part of 'pinned_wifi_state.dart';
+part of 'wifi_manager_state.dart';
 
 // **************************************************************************
 // FreezedGenerator
@@ -12,25 +12,25 @@ part of 'pinned_wifi_state.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$PinnedWifiState {
+mixin _$WifiManagerState {
 
- PinnedWifiPhase get phase;/// Stored (verified) router, if any.
+ WifiManagerPhase get phase;/// Stored (verified) router, if any.
  WifiConfig? get config;/// Router of the attempt in flight; differs from [config] during setup.
  WifiConfig? get target;/// BSSID the platform reports for the live connection.
  String? get actualBssid;/// Last failure; kept while retrying so the user sees why.
  WifiFailure? get failure;/// Consecutive failed attempts since the last verified connection.
  int get retryAttempt; Duration? get retryDelay;
-/// Create a copy of PinnedWifiState
+/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$PinnedWifiStateCopyWith<PinnedWifiState> get copyWith => _$PinnedWifiStateCopyWithImpl<PinnedWifiState>(this as PinnedWifiState, _$identity);
+$WifiManagerStateCopyWith<WifiManagerState> get copyWith => _$WifiManagerStateCopyWithImpl<WifiManagerState>(this as WifiManagerState, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PinnedWifiState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.config, config) || other.config == config)&&(identical(other.target, target) || other.target == target)&&(identical(other.actualBssid, actualBssid) || other.actualBssid == actualBssid)&&(identical(other.failure, failure) || other.failure == failure)&&(identical(other.retryAttempt, retryAttempt) || other.retryAttempt == retryAttempt)&&(identical(other.retryDelay, retryDelay) || other.retryDelay == retryDelay));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WifiManagerState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.config, config) || other.config == config)&&(identical(other.target, target) || other.target == target)&&(identical(other.actualBssid, actualBssid) || other.actualBssid == actualBssid)&&(identical(other.failure, failure) || other.failure == failure)&&(identical(other.retryAttempt, retryAttempt) || other.retryAttempt == retryAttempt)&&(identical(other.retryDelay, retryDelay) || other.retryDelay == retryDelay));
 }
 
 
@@ -39,18 +39,18 @@ int get hashCode => Object.hash(runtimeType,phase,config,target,actualBssid,fail
 
 @override
 String toString() {
-  return 'PinnedWifiState(phase: $phase, config: $config, target: $target, actualBssid: $actualBssid, failure: $failure, retryAttempt: $retryAttempt, retryDelay: $retryDelay)';
+  return 'WifiManagerState(phase: $phase, config: $config, target: $target, actualBssid: $actualBssid, failure: $failure, retryAttempt: $retryAttempt, retryDelay: $retryDelay)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $PinnedWifiStateCopyWith<$Res>  {
-  factory $PinnedWifiStateCopyWith(PinnedWifiState value, $Res Function(PinnedWifiState) _then) = _$PinnedWifiStateCopyWithImpl;
+abstract mixin class $WifiManagerStateCopyWith<$Res>  {
+  factory $WifiManagerStateCopyWith(WifiManagerState value, $Res Function(WifiManagerState) _then) = _$WifiManagerStateCopyWithImpl;
 @useResult
 $Res call({
- PinnedWifiPhase phase, WifiConfig? config, WifiConfig? target, String? actualBssid, WifiFailure? failure, int retryAttempt, Duration? retryDelay
+ WifiManagerPhase phase, WifiConfig? config, WifiConfig? target, String? actualBssid, WifiFailure? failure, int retryAttempt, Duration? retryDelay
 });
 
 
@@ -58,19 +58,19 @@ $WifiConfigCopyWith<$Res>? get config;$WifiConfigCopyWith<$Res>? get target;
 
 }
 /// @nodoc
-class _$PinnedWifiStateCopyWithImpl<$Res>
-    implements $PinnedWifiStateCopyWith<$Res> {
-  _$PinnedWifiStateCopyWithImpl(this._self, this._then);
+class _$WifiManagerStateCopyWithImpl<$Res>
+    implements $WifiManagerStateCopyWith<$Res> {
+  _$WifiManagerStateCopyWithImpl(this._self, this._then);
 
-  final PinnedWifiState _self;
-  final $Res Function(PinnedWifiState) _then;
+  final WifiManagerState _self;
+  final $Res Function(WifiManagerState) _then;
 
-/// Create a copy of PinnedWifiState
+/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? phase = null,Object? config = freezed,Object? target = freezed,Object? actualBssid = freezed,Object? failure = freezed,Object? retryAttempt = null,Object? retryDelay = freezed,}) {
   return _then(_self.copyWith(
 phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
-as PinnedWifiPhase,config: freezed == config ? _self.config : config // ignore: cast_nullable_to_non_nullable
+as WifiManagerPhase,config: freezed == config ? _self.config : config // ignore: cast_nullable_to_non_nullable
 as WifiConfig?,target: freezed == target ? _self.target : target // ignore: cast_nullable_to_non_nullable
 as WifiConfig?,actualBssid: freezed == actualBssid ? _self.actualBssid : actualBssid // ignore: cast_nullable_to_non_nullable
 as String?,failure: freezed == failure ? _self.failure : failure // ignore: cast_nullable_to_non_nullable
@@ -79,7 +79,7 @@ as int,retryDelay: freezed == retryDelay ? _self.retryDelay : retryDelay // igno
 as Duration?,
   ));
 }
-/// Create a copy of PinnedWifiState
+/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -91,7 +91,7 @@ $WifiConfigCopyWith<$Res>? get config {
   return $WifiConfigCopyWith<$Res>(_self.config!, (value) {
     return _then(_self.copyWith(config: value));
   });
-}/// Create a copy of PinnedWifiState
+}/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -107,8 +107,8 @@ $WifiConfigCopyWith<$Res>? get target {
 }
 
 
-/// Adds pattern-matching-related methods to [PinnedWifiState].
-extension PinnedWifiStatePatterns on PinnedWifiState {
+/// Adds pattern-matching-related methods to [WifiManagerState].
+extension WifiManagerStatePatterns on WifiManagerState {
 /// A variant of `map` that fallback to returning `orElse`.
 ///
 /// It is equivalent to doing:
@@ -121,10 +121,10 @@ extension PinnedWifiStatePatterns on PinnedWifiState {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PinnedWifiState value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WifiManagerState value)?  $default,{required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _PinnedWifiState() when $default != null:
+case _WifiManagerState() when $default != null:
 return $default(_that);case _:
   return orElse();
 
@@ -143,10 +143,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PinnedWifiState value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WifiManagerState value)  $default,){
 final _that = this;
 switch (_that) {
-case _PinnedWifiState():
+case _WifiManagerState():
 return $default(_that);case _:
   throw StateError('Unexpected subclass');
 
@@ -164,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PinnedWifiState value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WifiManagerState value)?  $default,){
 final _that = this;
 switch (_that) {
-case _PinnedWifiState() when $default != null:
+case _WifiManagerState() when $default != null:
 return $default(_that);case _:
   return null;
 
@@ -185,9 +185,9 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( PinnedWifiPhase phase,  WifiConfig? config,  WifiConfig? target,  String? actualBssid,  WifiFailure? failure,  int retryAttempt,  Duration? retryDelay)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WifiManagerPhase phase,  WifiConfig? config,  WifiConfig? target,  String? actualBssid,  WifiFailure? failure,  int retryAttempt,  Duration? retryDelay)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _PinnedWifiState() when $default != null:
+case _WifiManagerState() when $default != null:
 return $default(_that.phase,_that.config,_that.target,_that.actualBssid,_that.failure,_that.retryAttempt,_that.retryDelay);case _:
   return orElse();
 
@@ -206,9 +206,9 @@ return $default(_that.phase,_that.config,_that.target,_that.actualBssid,_that.fa
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( PinnedWifiPhase phase,  WifiConfig? config,  WifiConfig? target,  String? actualBssid,  WifiFailure? failure,  int retryAttempt,  Duration? retryDelay)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WifiManagerPhase phase,  WifiConfig? config,  WifiConfig? target,  String? actualBssid,  WifiFailure? failure,  int retryAttempt,  Duration? retryDelay)  $default,) {final _that = this;
 switch (_that) {
-case _PinnedWifiState():
+case _WifiManagerState():
 return $default(_that.phase,_that.config,_that.target,_that.actualBssid,_that.failure,_that.retryAttempt,_that.retryDelay);case _:
   throw StateError('Unexpected subclass');
 
@@ -226,9 +226,9 @@ return $default(_that.phase,_that.config,_that.target,_that.actualBssid,_that.fa
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( PinnedWifiPhase phase,  WifiConfig? config,  WifiConfig? target,  String? actualBssid,  WifiFailure? failure,  int retryAttempt,  Duration? retryDelay)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WifiManagerPhase phase,  WifiConfig? config,  WifiConfig? target,  String? actualBssid,  WifiFailure? failure,  int retryAttempt,  Duration? retryDelay)?  $default,) {final _that = this;
 switch (_that) {
-case _PinnedWifiState() when $default != null:
+case _WifiManagerState() when $default != null:
 return $default(_that.phase,_that.config,_that.target,_that.actualBssid,_that.failure,_that.retryAttempt,_that.retryDelay);case _:
   return null;
 
@@ -240,11 +240,11 @@ return $default(_that.phase,_that.config,_that.target,_that.actualBssid,_that.fa
 /// @nodoc
 
 
-class _PinnedWifiState extends PinnedWifiState {
-  const _PinnedWifiState({this.phase = PinnedWifiPhase.initial, this.config, this.target, this.actualBssid, this.failure, this.retryAttempt = 0, this.retryDelay}): super._();
+class _WifiManagerState extends WifiManagerState {
+  const _WifiManagerState({this.phase = WifiManagerPhase.initial, this.config, this.target, this.actualBssid, this.failure, this.retryAttempt = 0, this.retryDelay}): super._();
   
 
-@override@JsonKey() final  PinnedWifiPhase phase;
+@override@JsonKey() final  WifiManagerPhase phase;
 /// Stored (verified) router, if any.
 @override final  WifiConfig? config;
 /// Router of the attempt in flight; differs from [config] during setup.
@@ -257,17 +257,17 @@ class _PinnedWifiState extends PinnedWifiState {
 @override@JsonKey() final  int retryAttempt;
 @override final  Duration? retryDelay;
 
-/// Create a copy of PinnedWifiState
+/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-_$PinnedWifiStateCopyWith<_PinnedWifiState> get copyWith => __$PinnedWifiStateCopyWithImpl<_PinnedWifiState>(this, _$identity);
+_$WifiManagerStateCopyWith<_WifiManagerState> get copyWith => __$WifiManagerStateCopyWithImpl<_WifiManagerState>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PinnedWifiState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.config, config) || other.config == config)&&(identical(other.target, target) || other.target == target)&&(identical(other.actualBssid, actualBssid) || other.actualBssid == actualBssid)&&(identical(other.failure, failure) || other.failure == failure)&&(identical(other.retryAttempt, retryAttempt) || other.retryAttempt == retryAttempt)&&(identical(other.retryDelay, retryDelay) || other.retryDelay == retryDelay));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WifiManagerState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.config, config) || other.config == config)&&(identical(other.target, target) || other.target == target)&&(identical(other.actualBssid, actualBssid) || other.actualBssid == actualBssid)&&(identical(other.failure, failure) || other.failure == failure)&&(identical(other.retryAttempt, retryAttempt) || other.retryAttempt == retryAttempt)&&(identical(other.retryDelay, retryDelay) || other.retryDelay == retryDelay));
 }
 
 
@@ -276,18 +276,18 @@ int get hashCode => Object.hash(runtimeType,phase,config,target,actualBssid,fail
 
 @override
 String toString() {
-  return 'PinnedWifiState(phase: $phase, config: $config, target: $target, actualBssid: $actualBssid, failure: $failure, retryAttempt: $retryAttempt, retryDelay: $retryDelay)';
+  return 'WifiManagerState(phase: $phase, config: $config, target: $target, actualBssid: $actualBssid, failure: $failure, retryAttempt: $retryAttempt, retryDelay: $retryDelay)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class _$PinnedWifiStateCopyWith<$Res> implements $PinnedWifiStateCopyWith<$Res> {
-  factory _$PinnedWifiStateCopyWith(_PinnedWifiState value, $Res Function(_PinnedWifiState) _then) = __$PinnedWifiStateCopyWithImpl;
+abstract mixin class _$WifiManagerStateCopyWith<$Res> implements $WifiManagerStateCopyWith<$Res> {
+  factory _$WifiManagerStateCopyWith(_WifiManagerState value, $Res Function(_WifiManagerState) _then) = __$WifiManagerStateCopyWithImpl;
 @override @useResult
 $Res call({
- PinnedWifiPhase phase, WifiConfig? config, WifiConfig? target, String? actualBssid, WifiFailure? failure, int retryAttempt, Duration? retryDelay
+ WifiManagerPhase phase, WifiConfig? config, WifiConfig? target, String? actualBssid, WifiFailure? failure, int retryAttempt, Duration? retryDelay
 });
 
 
@@ -295,19 +295,19 @@ $Res call({
 
 }
 /// @nodoc
-class __$PinnedWifiStateCopyWithImpl<$Res>
-    implements _$PinnedWifiStateCopyWith<$Res> {
-  __$PinnedWifiStateCopyWithImpl(this._self, this._then);
+class __$WifiManagerStateCopyWithImpl<$Res>
+    implements _$WifiManagerStateCopyWith<$Res> {
+  __$WifiManagerStateCopyWithImpl(this._self, this._then);
 
-  final _PinnedWifiState _self;
-  final $Res Function(_PinnedWifiState) _then;
+  final _WifiManagerState _self;
+  final $Res Function(_WifiManagerState) _then;
 
-/// Create a copy of PinnedWifiState
+/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @override @pragma('vm:prefer-inline') $Res call({Object? phase = null,Object? config = freezed,Object? target = freezed,Object? actualBssid = freezed,Object? failure = freezed,Object? retryAttempt = null,Object? retryDelay = freezed,}) {
-  return _then(_PinnedWifiState(
+  return _then(_WifiManagerState(
 phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
-as PinnedWifiPhase,config: freezed == config ? _self.config : config // ignore: cast_nullable_to_non_nullable
+as WifiManagerPhase,config: freezed == config ? _self.config : config // ignore: cast_nullable_to_non_nullable
 as WifiConfig?,target: freezed == target ? _self.target : target // ignore: cast_nullable_to_non_nullable
 as WifiConfig?,actualBssid: freezed == actualBssid ? _self.actualBssid : actualBssid // ignore: cast_nullable_to_non_nullable
 as String?,failure: freezed == failure ? _self.failure : failure // ignore: cast_nullable_to_non_nullable
@@ -317,7 +317,7 @@ as Duration?,
   ));
 }
 
-/// Create a copy of PinnedWifiState
+/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -329,7 +329,7 @@ $WifiConfigCopyWith<$Res>? get config {
   return $WifiConfigCopyWith<$Res>(_self.config!, (value) {
     return _then(_self.copyWith(config: value));
   });
-}/// Create a copy of PinnedWifiState
+}/// Create a copy of WifiManagerState
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')

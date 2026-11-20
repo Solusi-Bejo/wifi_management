@@ -1,3 +1,20 @@
+## 0.2.0
+
+* **Breaking:** Dart API renamed and split into domain / data / presentation
+  layers.
+  * `PinnedWifiManager` → `WifiManager`; `PinnedWifiState` /
+    `PinnedWifiPhase` → `WifiManagerState` / `WifiManagerPhase`;
+    `defaultPinnedWifiRetryDelay` → `defaultWifiRetryDelay`.
+  * `PinnedWifiStore` / `InMemoryPinnedWifiStore` → `WifiConfigRepository` /
+    `InMemoryWifiConfigRepository`; the constructor takes `configRepository:`.
+  * `WifiManagement` is replaced by the `WifiRepository` interface
+    (`WifiRepositoryImpl` over the host) and one use case per action:
+    `GetWifiCapabilities`, `CheckWifiReadiness`, `ScanWifi`, `ConnectWifi`,
+    `DisconnectWifi`, `WatchWifiEvents`, `OpenWifiSettings`.
+  * `WifiManagementPlatform` / `PigeonWifiManagement` → `WifiManagerPlatform`
+    / `PigeonWifiManager`.
+* Package name, native plugin classes and channel names are unchanged.
+
 ## 0.1.0
 
 * First release.

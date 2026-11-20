@@ -2,56 +2,100 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
-import 'pinned_wifi_state.dart';
-import 'pinned_wifi_store.dart';
-import 'wifi_config.dart';
-import 'wifi_connection.dart';
-import 'wifi_management.dart';
-
-/// Delay before the [attempt]-th consecutive reconnect: 2, 4, 8, 16 s, then
-/// 30 s for every attempt after that.
-Duration defaultPinnedWifiRetryDelay(int attempt) => attempt >= 5
-    ? const Duration(seconds: 30)
-    : Duration(seconds: 1 << (attempt < 1 ? 1 : attempt));
+import '../../domain/entity/wifi_config.dart';
+import '../../domain/entity/wifi_connect_result.dart';
+import '../../domain/entity/wifi_failure.dart';
+import '../../domain/entity/wifi_network_event.dart';
+import '../../domain/entity/wifi_readiness.dart';
+import '../../domain/repository/wifi_config_repository.dart';
+import '../../domain/repository/wifi_repository.dart';
+import '../../domain/usecase/check_wifi_readiness.dart';
+import '../../domain/usecase/clear_wifi_config.dart';
+import '../../domain/usecase/connect_wifi.dart';
+import '../../domain/usecase/disconnect_wifi.dart';
+import '../../domain/usecase/load_wifi_config.dart';
+import '../../domain/usecase/save_wifi_config.dart';
+import '../../domain/usecase/use_case.dart';
+import '../../domain/usecase/watch_wifi_events.dart';
+import 'wifi_manager_state.dart';
+import 'wifi_retry_delay.dart';
 
 /// Owner of the pinned Wi-Fi link: loads the stored router on [start], joins
 /// exactly its SSID + BSSID, reconnects with backoff when the link drops, and
 /// resets on request. Create one per app and keep it for the app's lifetime.
 ///
+/// Scanning, capabilities and settings are separate use cases (`ScanWifi`,
+/// `GetWifiCapabilities`, `OpenWifiSettings`) over the same [WifiRepository].
+///
 /// One request at a time: every attempt bumps a generation counter, and an
 /// answer that comes back for an older generation is dropped, as is a retry
 /// timer armed by one.
-class PinnedWifiManager {
-  PinnedWifiManager({
-    required PinnedWifiStore store,
-    WifiManagement? wifi,
-    Duration Function(int attempt) retryDelay = defaultPinnedWifiRetryDelay,
-  }) : _store = store,
-       _wifi = wifi ?? WifiManagement(),
+class WifiManager {
+  /// Wires the use cases over [configRepository] and [wifiRepository]
+  /// (`WifiRepositoryImpl()` for the host platform).
+  factory WifiManager({
+    required WifiConfigRepository configRepository,
+    required WifiRepository wifiRepository,
+    Duration Function(int attempt) retryDelay = defaultWifiRetryDelay,
+  }) {
+    return WifiManager.withUseCases(
+      checkReadiness: CheckWifiReadiness(wifiRepository),
+      connectWifi: ConnectWifi(wifiRepository),
+      disconnectWifi: DisconnectWifi(wifiRepository),
+      watchWifiEvents: WatchWifiEvents(wifiRepository),
+      loadWifiConfig: LoadWifiConfig(configRepository),
+      saveWifiConfig: SaveWifiConfig(configRepository),
+      clearWifiConfig: ClearWifiConfig(configRepository),
+      retryDelay: retryDelay,
+    );
+  }
+
+  /// For apps that build the use cases themselves (e.g. through their DI).
+  WifiManager.withUseCases({
+    required CheckWifiReadiness checkReadiness,
+    required ConnectWifi connectWifi,
+    required DisconnectWifi disconnectWifi,
+    required WatchWifiEvents watchWifiEvents,
+    required LoadWifiConfig loadWifiConfig,
+    required SaveWifiConfig saveWifiConfig,
+    required ClearWifiConfig clearWifiConfig,
+    Duration Function(int attempt) retryDelay = defaultWifiRetryDelay,
+  }) : _checkReadiness = checkReadiness,
+       _connectWifi = connectWifi,
+       _disconnectWifi = disconnectWifi,
+       _watchWifiEvents = watchWifiEvents,
+       _loadWifiConfig = loadWifiConfig,
+       _saveWifiConfig = saveWifiConfig,
+       _clearWifiConfig = clearWifiConfig,
        _retryDelay = retryDelay;
 
-  final PinnedWifiStore _store;
-  final WifiManagement _wifi;
+  final CheckWifiReadiness _checkReadiness;
+  final ConnectWifi _connectWifi;
+  final DisconnectWifi _disconnectWifi;
+  final WatchWifiEvents _watchWifiEvents;
+  final LoadWifiConfig _loadWifiConfig;
+  final SaveWifiConfig _saveWifiConfig;
+  final ClearWifiConfig _clearWifiConfig;
   final Duration Function(int attempt) _retryDelay;
 
-  final _states = StreamController<PinnedWifiState>.broadcast();
-  PinnedWifiState _state = const PinnedWifiState();
+  final _states = StreamController<WifiManagerState>.broadcast();
+  WifiManagerState _state = const WifiManagerState();
   int _generation = 0;
   Timer? _retryTimer;
   StreamSubscription<WifiNetworkEvent>? _eventSubscription;
   bool _disposed = false;
 
-  PinnedWifiState get state => _state;
+  WifiManagerState get state => _state;
 
   /// Every change of [state].
-  Stream<PinnedWifiState> get states => _states.stream;
+  Stream<WifiManagerState> get states => _states.stream;
 
   bool get isDisposed => _disposed;
 
   @visibleForTesting
   bool get hasPendingRetry => _retryTimer?.isActive ?? false;
 
-  void _emit(PinnedWifiState next) {
+  void _emit(WifiManagerState next) {
     if (_disposed || next == _state) return;
     _state = next;
     _states.add(next);
@@ -59,32 +103,33 @@ class PinnedWifiManager {
 
   /// Startup: stored router, then exact-BSSID join, then verified.
   Future<void> start() async {
-    _eventSubscription ??= _wifi.events.listen(
-      _onNetworkEvent,
-      onError: (Object _) {},
-    );
+    _eventSubscription ??= _watchWifiEvents(
+      const NoParams(),
+    ).listen(_onNetworkEvent, onError: (Object _) {});
 
     WifiReadiness readiness;
     try {
-      readiness = await _wifi.checkReadiness();
+      readiness = await _checkReadiness(
+        const CheckWifiReadinessParams(requestPermission: false),
+      );
     } catch (_) {
       readiness = WifiReadiness.unsupported;
     }
     if (_disposed) return;
     if (readiness == WifiReadiness.unsupported) {
-      _emit(const PinnedWifiState(phase: PinnedWifiPhase.unsupported));
+      _emit(const WifiManagerState(phase: WifiManagerPhase.unsupported));
       return;
     }
 
     WifiConfig? config;
     try {
-      config = await _store.load();
+      config = await _loadWifiConfig(const NoParams());
     } catch (_) {
       config = null;
     }
     if (_disposed) return;
     if (config == null) {
-      _emit(const PinnedWifiState(phase: PinnedWifiPhase.notConfigured));
+      _emit(const WifiManagerState(phase: WifiManagerPhase.notConfigured));
       return;
     }
     _emit(_state.copyWith(config: config));
@@ -106,10 +151,10 @@ class PinnedWifiManager {
   Future<void> reset() async {
     _generation++;
     _retryTimer?.cancel();
-    _emit(const PinnedWifiState(phase: PinnedWifiPhase.notConfigured));
+    _emit(const WifiManagerState(phase: WifiManagerPhase.notConfigured));
     await _release();
     try {
-      await _store.clear();
+      await _clearWifiConfig(const NoParams());
     } catch (_) {
       _emit(_state.copyWith(failure: WifiFailure.storageFailed));
     }
@@ -120,7 +165,7 @@ class PinnedWifiManager {
     _retryTimer?.cancel();
     _emit(
       _state.copyWith(
-        phase: PinnedWifiPhase.connecting,
+        phase: WifiManagerPhase.connecting,
         target: target,
         actualBssid: null,
       ),
@@ -128,7 +173,7 @@ class PinnedWifiManager {
 
     WifiConnectResult result;
     try {
-      result = await _wifi.connect(target);
+      result = await _connectWifi(target);
     } catch (_) {
       result = const WifiConnectResult.failed(WifiFailure.unknown);
     }
@@ -138,7 +183,7 @@ class PinnedWifiManager {
       case WifiConnected(:final actualBssid):
         if (save) {
           try {
-            await _store.save(target);
+            await _saveWifiConfig(target);
           } catch (_) {
             if (_disposed || generation != _generation) return;
             await _release();
@@ -149,15 +194,15 @@ class PinnedWifiManager {
           if (_disposed || generation != _generation) return;
         }
         _emit(
-          PinnedWifiState(
-            phase: PinnedWifiPhase.connected,
+          WifiManagerState(
+            phase: WifiManagerPhase.connected,
             config: target,
             actualBssid: actualBssid,
           ),
         );
       case WifiConnectFailed(:final failure):
         if (failure == WifiFailure.unsupported) {
-          _emit(const PinnedWifiState(phase: PinnedWifiPhase.unsupported));
+          _emit(const WifiManagerState(phase: WifiManagerPhase.unsupported));
           return;
         }
         _fail(failure);
@@ -170,7 +215,7 @@ class PinnedWifiManager {
     if (_state.config == null) {
       _emit(
         _state.copyWith(
-          phase: PinnedWifiPhase.failed,
+          phase: WifiManagerPhase.failed,
           failure: failure,
           target: null,
         ),
@@ -186,7 +231,7 @@ class PinnedWifiManager {
     final generation = _generation;
     _emit(
       _state.copyWith(
-        phase: PinnedWifiPhase.retrying,
+        phase: WifiManagerPhase.retrying,
         failure: failure,
         retryAttempt: attempt,
         retryDelay: delay,
@@ -203,7 +248,7 @@ class PinnedWifiManager {
   }
 
   void _onNetworkEvent(WifiNetworkEvent event) {
-    if (_disposed || _state.phase != PinnedWifiPhase.connected) return;
+    if (_disposed || _state.phase != WifiManagerPhase.connected) return;
     switch (event.type) {
       case WifiNetworkEventType.lost:
       case WifiNetworkEventType.unavailable:
@@ -224,7 +269,7 @@ class PinnedWifiManager {
 
   Future<void> _release() async {
     try {
-      await _wifi.disconnect();
+      await _disconnectWifi(const NoParams());
     } catch (_) {
       // Nothing left to release.
     }

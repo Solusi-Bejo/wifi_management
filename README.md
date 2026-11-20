@@ -18,8 +18,9 @@ remembers it, and reconnects with backoff when the link drops.
 | Bind the app's traffic to that network | ✅ `bindProcessToNetwork` | ❌ | ❌ |
 | Detect a lost link | ✅ | ✅ (path monitor + polling) | ❌ |
 
-`WifiManagement().capabilities()` reports this at runtime. Unsupported
-platforms answer `WifiFailure.unsupported` / `PinnedWifiPhase.unsupported`.
+`GetWifiCapabilities(WifiRepositoryImpl())(const NoParams())` reports this at
+runtime. Unsupported platforms answer `WifiFailure.unsupported` /
+`WifiManagerPhase.unsupported`.
 
 Works with Flutter **3.41 and newer** (Dart 3.11+), on AGP 8 (Kotlin Gradle
 Plugin) and AGP 9 (built-in Kotlin) apps.
@@ -49,7 +50,10 @@ The first join to a router may show a system approval dialog.
 ```dart
 import 'package:wifi_management/wifi_management.dart';
 
-final manager = PinnedWifiManager(store: MyStore()); // see below
+final manager = WifiManager(
+  configRepository: MyConfigRepository(), // see below
+  wifiRepository: WifiRepositoryImpl(),
+);
 
 await manager.start(); // reconnects to the stored router, if any
 manager.states.listen((state) {
@@ -74,24 +78,31 @@ after 2, 4, 8, 16, then every 30 seconds, one attempt at a time.
 
 ### Scan and check readiness
 
-```dart
-final wifi = WifiManagement();
+Each action is its own use case over a `WifiRepository`:
 
-final readiness = await wifi.checkReadiness(requestPermission: true);
+```dart
+final wifi = WifiRepositoryImpl(); // the host platform
+
+final readiness = await CheckWifiReadiness(wifi)(
+  const CheckWifiReadinessParams(requestPermission: true),
+);
 if (readiness == WifiReadiness.locationDisabled) {
-  await wifi.openSettings(WifiSettingsTarget.location);
+  await OpenWifiSettings(wifi)(WifiSettingsTarget.location);
 }
 
-final scan = await wifi.scan(); // one entry per BSSID, strongest first
+// One entry per BSSID, strongest first.
+final scan = await ScanWifi(wifi)(const NoParams());
 ```
+
+Pass the same repository to `WifiManager(wifiRepository: wifi, ...)`.
 
 ### Storing the router
 
-`PinnedWifiManager` takes a `PinnedWifiStore`. Implement it over your app's
+`WifiManager` takes a `WifiConfigRepository`. Implement it over your app's
 storage with `WifiConfig.toJson()` / `WifiConfig.fromJson()`:
 
 ```dart
-class MyStore implements PinnedWifiStore {
+class MyConfigRepository implements WifiConfigRepository {
   @override
   Future<WifiConfig?> load() async { /* read + WifiConfig.fromJson */ }
   @override
@@ -102,7 +113,7 @@ class MyStore implements PinnedWifiStore {
 ```
 
 > The JSON contains the Wi-Fi **password**. Prefer encrypted storage.
-> `InMemoryPinnedWifiStore` is for tests and demos.
+> `InMemoryWifiConfigRepository` is for tests and demos.
 
 ## Things to know
 
@@ -121,12 +132,25 @@ class MyStore implements PinnedWifiStore {
 Replace the platform with a fake:
 
 ```dart
-class FakeWifi extends WifiManagementPlatform with MockPlatformInterfaceMixin {
+class FakeWifi extends WifiManagerPlatform with MockPlatformInterfaceMixin {
   // override capabilities, checkReadiness, scan, connect, events, ...
 }
 
-final manager = PinnedWifiManager(
-  store: InMemoryPinnedWifiStore(),
-  wifi: WifiManagement(platform: FakeWifi()),
+final manager = WifiManager(
+  configRepository: InMemoryWifiConfigRepository(),
+  wifiRepository: WifiRepositoryImpl(platform: FakeWifi()),
 );
+```
+
+Or implement `WifiRepository` directly, or build the use cases yourself
+and pass them to `WifiManager.withUseCases(...)`.
+
+## Code layout
+
+```
+lib/wifi_management.dart        public barrel
+lib/src/domain/                 entities, repository interfaces, use cases
+lib/src/data/                   platform interface, Pigeon datasource,
+                                mappers, repository implementations
+lib/src/presentation/manager/   WifiManager + WifiManagerState
 ```

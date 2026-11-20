@@ -7,23 +7,26 @@ import 'package:wifi_management/wifi_management.dart';
 void main() => runApp(const ExampleApp());
 
 class ExampleApp extends StatefulWidget {
-  const ExampleApp({super.key, this.wifi, this.store});
+  const ExampleApp({super.key, this.wifiRepository, this.configRepository});
 
   /// Injected by tests; defaults to the real plugin.
-  final WifiManagement? wifi;
-  final PinnedWifiStore? store;
+  final WifiRepository? wifiRepository;
+  final WifiConfigRepository? configRepository;
 
   @override
   State<ExampleApp> createState() => _ExampleAppState();
 }
 
 class _ExampleAppState extends State<ExampleApp> {
-  late final WifiManagement _wifi = widget.wifi ?? WifiManagement();
+  late final WifiRepository _wifi =
+      widget.wifiRepository ?? WifiRepositoryImpl();
+  late final _checkReadiness = CheckWifiReadiness(_wifi);
+  late final _scanWifi = ScanWifi(_wifi);
 
   // A real app stores the router somewhere persistent (and encrypted).
-  late final PinnedWifiManager _manager = PinnedWifiManager(
-    store: widget.store ?? InMemoryPinnedWifiStore(),
-    wifi: _wifi,
+  late final WifiManager _manager = WifiManager(
+    configRepository: widget.configRepository ?? InMemoryWifiConfigRepository(),
+    wifiRepository: _wifi,
   );
 
   List<WifiAccessPoint> _accessPoints = const [];
@@ -42,12 +45,14 @@ class _ExampleAppState extends State<ExampleApp> {
   }
 
   Future<void> _scan() async {
-    final readiness = await _wifi.checkReadiness(requestPermission: true);
+    final readiness = await _checkReadiness(
+      const CheckWifiReadinessParams(requestPermission: true),
+    );
     if (readiness != WifiReadiness.ready) {
       setState(() => _scanMessage = 'Not ready: ${readiness.name}');
       return;
     }
-    final result = await _wifi.scan();
+    final result = await _scanWifi(const NoParams());
     setState(() {
       _accessPoints = result.accessPoints;
       _scanMessage = result.failure == null
@@ -95,7 +100,7 @@ class _ExampleAppState extends State<ExampleApp> {
           icon: const Icon(Icons.wifi_find),
           label: const Text('Scan'),
         ),
-        body: StreamBuilder<PinnedWifiState>(
+        body: StreamBuilder<WifiManagerState>(
           stream: _manager.states,
           initialData: _manager.state,
           builder: (context, snapshot) {

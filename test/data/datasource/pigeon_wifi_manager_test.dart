@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wifi_management/src/messages.g.dart';
+import 'package:wifi_management/src/data/datasource/messages.g.dart';
 import 'package:wifi_management/wifi_management.dart';
 
-import 'fakes.dart';
+import '../../fakes.dart';
 
 class _FakeHostApi extends WifiManagementHostApi {
   _FakeHostApi(this.events);
@@ -61,12 +61,12 @@ class _FakeHostApi extends WifiManagementHostApi {
 void main() {
   late StreamController<PlatformNetworkEvent> events;
   late _FakeHostApi api;
-  late PigeonWifiManagement platform;
+  late PigeonWifiManager platform;
 
   setUp(() {
     events = StreamController<PlatformNetworkEvent>.broadcast();
     api = _FakeHostApi(events);
-    platform = PigeonWifiManagement(
+    platform = PigeonWifiManager(
       api: api,
       eventSource: () => events.stream,
       isHostSupported: true,
@@ -139,7 +139,7 @@ void main() {
   });
 
   test('an unsupported host never calls the platform', () async {
-    final offHost = PigeonWifiManagement(api: api, isHostSupported: false);
+    final offHost = PigeonWifiManager(api: api, isHostSupported: false);
 
     expect(await offHost.capabilities(), WifiCapabilities.none);
     expect(await offHost.checkReadiness(), WifiReadiness.unsupported);

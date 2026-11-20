@@ -1,11 +1,11 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'wifi_config.dart';
-import 'wifi_connection.dart';
+import '../../domain/entity/wifi_config.dart';
+import '../../domain/entity/wifi_failure.dart';
 
-part 'pinned_wifi_state.freezed.dart';
+part 'wifi_manager_state.freezed.dart';
 
-enum PinnedWifiPhase {
+enum WifiManagerPhase {
   /// `start()` has not finished reading the stored router yet.
   initial,
 
@@ -17,7 +17,7 @@ enum PinnedWifiPhase {
   /// Joined and BSSID verified (and, on Android, the process is bound).
   connected,
 
-  /// Waiting [PinnedWifiState.retryDelay] before the next attempt.
+  /// Waiting [WifiManagerState.retryDelay] before the next attempt.
   retrying,
 
   /// A new-router attempt failed and there is no stored router to fall back
@@ -26,11 +26,11 @@ enum PinnedWifiPhase {
 }
 
 @freezed
-abstract class PinnedWifiState with _$PinnedWifiState {
-  const PinnedWifiState._();
+abstract class WifiManagerState with _$WifiManagerState {
+  const WifiManagerState._();
 
-  const factory PinnedWifiState({
-    @Default(PinnedWifiPhase.initial) PinnedWifiPhase phase,
+  const factory WifiManagerState({
+    @Default(WifiManagerPhase.initial) WifiManagerPhase phase,
 
     /// Stored (verified) router, if any.
     WifiConfig? config,
@@ -47,10 +47,10 @@ abstract class PinnedWifiState with _$PinnedWifiState {
     /// Consecutive failed attempts since the last verified connection.
     @Default(0) int retryAttempt,
     Duration? retryDelay,
-  }) = _PinnedWifiState;
+  }) = _WifiManagerState;
 
   /// Connected to exactly the stored SSID + BSSID.
   bool get isVerified =>
-      phase == PinnedWifiPhase.connected &&
+      phase == WifiManagerPhase.connected &&
       (config?.matchesBssid(actualBssid) ?? false);
 }

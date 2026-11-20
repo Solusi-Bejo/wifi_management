@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'wifi_access_point.dart';
+import 'wifi_security.dart';
 
 part 'wifi_config.freezed.dart';
 part 'wifi_config.g.dart';

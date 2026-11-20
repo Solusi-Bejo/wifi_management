@@ -6,9 +6,11 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('the host answers capabilities and readiness', (tester) async {
-    final wifi = WifiManagement();
-    final capabilities = await wifi.capabilities();
-    final readiness = await wifi.checkReadiness();
+    final wifi = WifiRepositoryImpl();
+    final capabilities = await GetWifiCapabilities(wifi)(const NoParams());
+    final readiness = await CheckWifiReadiness(wifi)(
+      const CheckWifiReadinessParams(requestPermission: false),
+    );
 
     // Values depend on the device; the call itself must round-trip.
     expect(capabilities, isA<WifiCapabilities>());

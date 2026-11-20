@@ -1,22 +1,26 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'pigeon_wifi_management.dart';
-import 'wifi_config.dart';
-import 'wifi_connection.dart';
+import '../../domain/entity/wifi_capabilities.dart';
+import '../../domain/entity/wifi_config.dart';
+import '../../domain/entity/wifi_connect_result.dart';
+import '../../domain/entity/wifi_network_event.dart';
+import '../../domain/entity/wifi_readiness.dart';
+import '../../domain/entity/wifi_scan_result.dart';
+import 'pigeon_wifi_manager.dart';
 
-/// Host side of `wifi_management`. Apps use `WifiManagement` /
-/// `PinnedWifiManager`; tests replace [instance] with a fake.
-abstract class WifiManagementPlatform extends PlatformInterface {
-  WifiManagementPlatform() : super(token: _token);
+/// Host side of `wifi_management`. Apps go through `WifiRepositoryImpl`;
+/// tests replace [instance] with a fake.
+abstract class WifiManagerPlatform extends PlatformInterface {
+  WifiManagerPlatform() : super(token: _token);
 
   static final Object _token = Object();
 
-  static WifiManagementPlatform _instance = PigeonWifiManagement();
+  static WifiManagerPlatform _instance = PigeonWifiManager();
 
-  /// Defaults to [PigeonWifiManagement].
-  static WifiManagementPlatform get instance => _instance;
+  /// Defaults to [PigeonWifiManager].
+  static WifiManagerPlatform get instance => _instance;
 
-  static set instance(WifiManagementPlatform instance) {
+  static set instance(WifiManagerPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }

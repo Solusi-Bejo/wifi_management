@@ -25,7 +25,7 @@ WifiConfig configFor(WifiAccessPoint ap, {String password = 'secret123'}) =>
       password: password,
     );
 
-class FakeWifiPlatform extends WifiManagementPlatform
+class FakeWifiPlatform extends WifiManagerPlatform
     with MockPlatformInterfaceMixin {
   WifiReadiness readiness = WifiReadiness.ready;
   bool grantOnRequest = true;
@@ -83,8 +83,8 @@ class FakeWifiPlatform extends WifiManagementPlatform
   Future<void> openAppSettings() async => openedSettings.add('app');
 }
 
-class FakeStore implements PinnedWifiStore {
-  FakeStore([this.stored]);
+class FakeWifiConfigRepository implements WifiConfigRepository {
+  FakeWifiConfigRepository([this.stored]);
 
   WifiConfig? stored;
   bool failSave = false;
@@ -104,8 +104,10 @@ class FakeStore implements PinnedWifiStore {
   Future<void> clear() async => stored = null;
 }
 
-PinnedWifiManager buildManager(FakeWifiPlatform platform, FakeStore store) =>
-    PinnedWifiManager(
-      store: store,
-      wifi: WifiManagement(platform: platform),
-    );
+WifiManager buildManager(
+  FakeWifiPlatform platform,
+  FakeWifiConfigRepository store,
+) => WifiManager(
+  configRepository: store,
+  wifiRepository: WifiRepositoryImpl(platform: platform),
+);

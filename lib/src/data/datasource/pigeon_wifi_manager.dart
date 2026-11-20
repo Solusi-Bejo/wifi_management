@@ -3,19 +3,25 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../domain/entity/wifi_access_point.dart';
+import '../../domain/entity/wifi_capabilities.dart';
+import '../../domain/entity/wifi_config.dart';
+import '../../domain/entity/wifi_connect_result.dart';
+import '../../domain/entity/wifi_failure.dart';
+import '../../domain/entity/wifi_network_event.dart';
+import '../../domain/entity/wifi_readiness.dart';
+import '../../domain/entity/wifi_scan_result.dart';
+import '../mapper/platform_mapper.dart';
 import 'messages.g.dart';
-import 'wifi_access_point.dart';
-import 'wifi_config.dart';
-import 'wifi_connection.dart';
-import 'wifi_management_platform.dart';
+import 'wifi_manager_platform.dart';
 
-/// [WifiManagementPlatform] over the Pigeon host API (Android and iOS).
+/// [WifiManagerPlatform] over the Pigeon host API (Android and iOS).
 ///
 /// Every [connect] gets a fresh request id; events of any older request are
 /// dropped here, so a late callback of a released request can never be read as
 /// the state of the current one.
-class PigeonWifiManagement extends WifiManagementPlatform {
-  PigeonWifiManagement({
+class PigeonWifiManager extends WifiManagerPlatform {
+  PigeonWifiManager({
     @visibleForTesting WifiManagementHostApi? api,
     @visibleForTesting Stream<PlatformNetworkEvent> Function()? eventSource,
     @visibleForTesting bool? isHostSupported,
@@ -60,60 +66,41 @@ class PigeonWifiManagement extends WifiManagementPlatform {
   void _onPlatformEvent(PlatformNetworkEvent raw) {
     if (raw.requestId != _requestId) return;
 
-    final event = WifiNetworkEvent(
-      type: WifiNetworkEventType.fromName(raw.type),
-      ssid: raw.ssid,
-      bssid: raw.bssid,
-      failure: raw.failure == null ? null : WifiFailure.fromCode(raw.failure),
-    );
-
+    final event = raw.asEntity;
     final pending = _pending;
     if (pending != null && !pending.isCompleted) {
-      switch (event.type) {
-        case WifiNetworkEventType.connecting:
-          break;
-        case WifiNetworkEventType.connected:
-          final actual = event.bssid;
-          pending.complete(
-            actual != null &&
-                    WifiConfig.normalizeBssid(actual) == _expectedBssid
-                ? WifiConnectResult.connected(actual)
-                : const WifiConnectResult.failed(WifiFailure.bssidMismatch),
-          );
-        case WifiNetworkEventType.lost:
-        case WifiNetworkEventType.unavailable:
-          pending.complete(
-            const WifiConnectResult.failed(WifiFailure.unavailable),
-          );
-        case WifiNetworkEventType.error:
-          pending.complete(
-            WifiConnectResult.failed(event.failure ?? WifiFailure.unknown),
-          );
-      }
+      final result = _resultOf(event);
+      if (result != null) pending.complete(result);
     }
     _events.add(event);
   }
 
+  /// What [event] settles for the pending [connect]; null while still
+  /// connecting.
+  WifiConnectResult? _resultOf(WifiNetworkEvent event) => switch (event.type) {
+    WifiNetworkEventType.connecting => null,
+    WifiNetworkEventType.connected =>
+      event.bssid != null &&
+              WifiConfig.normalizeBssid(event.bssid!) == _expectedBssid
+          ? WifiConnectResult.connected(event.bssid!)
+          : const WifiConnectResult.failed(WifiFailure.bssidMismatch),
+    WifiNetworkEventType.lost || WifiNetworkEventType.unavailable =>
+      const WifiConnectResult.failed(WifiFailure.unavailable),
+    WifiNetworkEventType.error => WifiConnectResult.failed(
+      event.failure ?? WifiFailure.unknown,
+    ),
+  };
+
   @override
   Future<WifiCapabilities> capabilities() async {
     if (!_isHostSupported) return WifiCapabilities.none;
-    final raw = await _api.capabilities();
-    return WifiCapabilities(
-      supported: raw.supported,
-      canScan: raw.canScan,
-      canLockBssid: raw.canLockBssid,
-      canBindProcess: raw.canBindProcess,
-    );
+    return (await _api.capabilities()).asEntity;
   }
 
   @override
   Future<WifiReadiness> checkReadiness() async {
     if (!_isHostSupported) return WifiReadiness.unsupported;
-    final raw = await _api.checkReadiness();
-    if (!raw.supported) return WifiReadiness.unsupported;
-    if (!raw.permissionsGranted) return WifiReadiness.permissionDenied;
-    if (!raw.locationEnabled) return WifiReadiness.locationDisabled;
-    return WifiReadiness.ready;
+    return (await _api.checkReadiness()).asEntity;
   }
 
   @override
@@ -135,20 +122,7 @@ class PigeonWifiManagement extends WifiManagementPlatform {
       );
     }
     try {
-      final raw = await _api.scan();
-      final failure = raw.failure;
-      return (
-        accessPoints: [
-          for (final ap in raw.accessPoints)
-            WifiAccessPoint(
-              ssid: ap.ssid,
-              bssid: WifiConfig.normalizeBssid(ap.bssid),
-              rssi: ap.rssi,
-              security: WifiSecurity.fromCode(ap.security),
-            ),
-        ],
-        failure: failure == null ? null : WifiFailure.fromCode(failure),
-      );
+      return (await _api.scan()).asEntity;
     } on PlatformException {
       return (
         accessPoints: <WifiAccessPoint>[],
@@ -166,18 +140,11 @@ class PigeonWifiManagement extends WifiManagementPlatform {
     _supersedePending();
 
     final requestId = ++_requestId;
-    _expectedBssid = WifiConfig.normalizeBssid(config.bssid);
+    final request = config.asRequest(requestId);
+    _expectedBssid = request.bssid;
     final completer = _pending = Completer<WifiConnectResult>();
     try {
-      await _api.connect(
-        PlatformConnectRequest(
-          requestId: requestId,
-          ssid: config.ssid,
-          bssid: _expectedBssid!,
-          security: config.security.code,
-          password: config.password,
-        ),
-      );
+      await _api.connect(request);
     } on PlatformException {
       if (!completer.isCompleted) {
         completer.complete(const WifiConnectResult.failed(WifiFailure.unknown));

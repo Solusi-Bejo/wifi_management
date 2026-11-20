@@ -8,7 +8,7 @@ import 'package:pigeon/pigeon.dart';
 @ConfigurePigeon(
   PigeonOptions(
     dartPackageName: 'wifi_management',
-    dartOut: 'lib/src/messages.g.dart',
+    dartOut: 'lib/src/data/datasource/messages.g.dart',
     kotlinOut:
         'android/src/main/kotlin/com/solusibejo/wifi_management/Messages.g.kt',
     kotlinOptions: KotlinOptions(package: 'com.solusibejo.wifi_management'),
