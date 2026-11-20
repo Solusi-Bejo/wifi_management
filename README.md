@@ -11,18 +11,16 @@ check passes, so a wrong join never becomes the remembered one.
 
 ## Sound familiar?
 
-- Every vehicle, room or kiosk broadcasts the same SSID, and the tablet joins
-  whichever one is loudest.
-- The display in one bus talks to the router in the bus parked next to it.
+- Several routers broadcast the same SSID, and the device joins whichever one
+  is loudest.
+- The device ends up on a nearby router instead of the one it belongs to.
 - The OS says "connected". Nothing tells you it's the wrong BSSID.
-- The link drops, and someone has to walk over and pick the network in
-  Settings again.
+- The link drops, and someone has to pick the network in Settings again.
 
 ## Who it's for
 
-**For you if** your Flutter app runs on devices that must stay on one specific
-router among several with the same name: in-vehicle displays, kiosks, room
-panels, field tablets.
+**For you if** your Flutter app must stay on one specific router while other
+routers nearby broadcast the same SSID.
 
 **Not for you if:**
 
@@ -33,7 +31,7 @@ panels, field tablets.
   Android the whole app's traffic goes through the pinned network.
 - you target Android 9 or older.
 
-![Animated illustration, before and after. Before: six cards pile up. Every bus broadcasts SSID001 and the tablet joins whichever is loudest. The display on bus 12 talks to the router in bus 14, parked next to it. The OS says connected and nothing says it is the wrong BSSID. The link drops at a stop and nobody reconnects it. Someone walks over and picks the network in Settings again. After a reboot the device only remembers the name. A wipe turns the label to After: an app log runs "await manager.start()", loads SSID001 at aa:bb:cc:00:00:02, requests that BSSID only, joins and verifies it, and ends on connected, isVerified true. Five outcomes appear: pick the router by BSSID from a scan, Android joins only that BSSID, every join is checked and a mismatch is released, the router is saved after the check and restored by start, and a lost link retries at 2, 4, 8, 16, then 30 seconds.](docs/before-after.gif)
+![Animated illustration, before and after. Before: six cards pile up. Several routers broadcast SSID001 and the device joins whichever is loudest. The device ends up on a nearby router, not the one it belongs to. The OS says connected and nothing says it is the wrong BSSID. The link drops and nothing reconnects it. Someone has to pick the network in Settings again. After a reboot the device only remembers the name. A wipe turns the label to After: an app log runs "await manager.start()", loads SSID001 at aa:bb:cc:00:00:02, requests that BSSID only, joins and verifies it, and ends on connected, isVerified true. Five outcomes appear: pick the router by BSSID from a scan, Android joins only that BSSID, every join is checked and a mismatch is released, the router is saved after the check and restored by start, and a lost link retries at 2, 4, 8, 16, then 30 seconds.](docs/before-after.gif)
 
 ## How it works
 

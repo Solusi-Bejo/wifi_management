@@ -32,7 +32,10 @@
           "items": [
             "phase: connected, isVerified: true",
             "Stored only after the BSSID check passed",
-            { "text": "Link lost? Retry after 2, 4, 8, 16, then 30 s", "warn": true }
+            {
+              "text": "Link lost? Retry after 2, 4, 8, 16, then 30 s",
+              "warn": true
+            }
           ]
         },
         "footnote": "Illustration of a typical Android setup. On iOS the join is **best effort**."
@@ -43,26 +46,47 @@
       "template": "before-after",
       "gif": "docs/before-after.gif",
       "seconds": 12,
-      "alt": "Animated illustration, before and after. Before: six cards pile up. Every bus broadcasts SSID001 and the tablet joins whichever is loudest. The display on bus 12 talks to the router in bus 14, parked next to it. The OS says connected and nothing says it is the wrong BSSID. The link drops at a stop and nobody reconnects it. Someone walks over and picks the network in Settings again. After a reboot the device only remembers the name. A wipe turns the label to After: an app log runs \"await manager.start()\", loads SSID001 at aa:bb:cc:00:00:02, requests that BSSID only, joins and verifies it, and ends on connected, isVerified true. Five outcomes appear: pick the router by BSSID from a scan, Android joins only that BSSID, every join is checked and a mismatch is released, the router is saved after the check and restored by start, and a lost link retries at 2, 4, 8, 16, then 30 seconds.",
+      "alt": "Animated illustration, before and after. Before: six cards pile up. Several routers broadcast SSID001 and the device joins whichever is loudest. The device ends up on a nearby router, not the one it belongs to. The OS says connected and nothing says it is the wrong BSSID. The link drops and nothing reconnects it. Someone has to pick the network in Settings again. After a reboot the device only remembers the name. A wipe turns the label to After: an app log runs \"await manager.start()\", loads SSID001 at aa:bb:cc:00:00:02, requests that BSSID only, joins and verifies it, and ends on connected, isVerified true. Five outcomes appear: pick the router by BSSID from a scan, Android joins only that BSSID, every join is checked and a mismatch is released, the router is saved after the check and restored by start, and a lost link retries at 2, 4, 8, 16, then 30 seconds.",
       "data": {
-        "title": "Ten routers, one SSID",
-        "time": "the depot at 7 am",
-        "caption": "Illustration of a typical fleet setup.",
+        "title": "Many routers, one SSID",
+        "time": "same name, different routers",
+        "caption": "Illustration of a typical multi-router setup.",
         "app": "your app · state log",
         "before": [
-          { "tag": "same name", "text": "Every bus broadcasts SSID001. The tablet joins whichever is loudest." },
-          { "tag": "wrong router", "text": "The display on bus 12 talks to the router in bus 14, parked next to it." },
-          { "tag": "silent", "text": "The OS says connected. Nothing says it's the wrong BSSID." },
-          { "tag": "dropped", "text": "The link drops at a stop and nobody reconnects it." },
-          { "tag": "by hand", "text": "Someone walks over and picks the network in Settings again." },
-          { "tag": "forgotten", "text": "After a reboot the device only remembers the name." }
+          {
+            "tag": "same name",
+            "text": "Several routers broadcast SSID001. The device joins whichever is loudest."
+          },
+          {
+            "tag": "wrong router",
+            "text": "The device ends up on a nearby router, not the one it belongs to."
+          },
+          {
+            "tag": "silent",
+            "text": "The OS says connected. Nothing says it's the wrong BSSID."
+          },
+          {
+            "tag": "dropped",
+            "text": "The link drops and nothing reconnects it."
+          },
+          {
+            "tag": "by hand",
+            "text": "Someone has to pick the network in Settings again."
+          },
+          {
+            "tag": "forgotten",
+            "text": "After a reboot the device only remembers the name."
+          }
         ],
         "prompt": "await manager.start()",
         "lines": [
           "loaded SSID001 · aa:bb:cc:00:00:02",
           "requested that BSSID only",
           "joined, BSSID verified",
-          { "text": "connected · isVerified: true", "ok": true }
+          {
+            "text": "connected · isVerified: true",
+            "ok": true
+          }
         ],
         "after": [
           "Pick the router by BSSID from a scan.",
@@ -82,10 +106,39 @@
       "data": {
         "title": "How it works",
         "steps": [
-          { "title": "Scan", "items": ["`ScanWifi` (Android)", "One row per BSSID", "Strongest signal first"] },
-          { "title": "Join one BSSID", "items": ["`connectNew(config)`", "Android: `WifiNetworkSpecifier`", "iOS: joins by SSID"] },
-          { "title": "Verify and save", "highlight": true, "items": ["Read the BSSID joined", "Mismatch: release, report", "Match: save the router"] },
-          { "title": "Stay on it", "items": ["Traffic bound (Android)", "Lost link: 2 to 30 s backoff", "`start()` on next launch"] }
+          {
+            "title": "Scan",
+            "items": [
+              "`ScanWifi` (Android)",
+              "One row per BSSID",
+              "Strongest signal first"
+            ]
+          },
+          {
+            "title": "Join one BSSID",
+            "items": [
+              "`connectNew(config)`",
+              "Android: `WifiNetworkSpecifier`",
+              "iOS: joins by SSID"
+            ]
+          },
+          {
+            "title": "Verify and save",
+            "highlight": true,
+            "items": [
+              "Read the BSSID joined",
+              "Mismatch: release, report",
+              "Match: save the router"
+            ]
+          },
+          {
+            "title": "Stay on it",
+            "items": [
+              "Traffic bound (Android)",
+              "Lost link: 2 to 30 s backoff",
+              "`start()` on next launch"
+            ]
+          }
         ],
         "loop": "Link dropped? `WifiManagement` retries the stored router, one attempt at a time, until it verifies again."
       }
