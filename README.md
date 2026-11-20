@@ -1,12 +1,81 @@
 # wifi_management
 
-Pin a device to **one exact Wi-Fi router**, identified by SSID **and BSSID**.
+**Join one exact Wi-Fi router, even when ten share its name.**
 
-Fleets often run many routers with the same SSID (one per vehicle, room or
-kiosk). The OS only remembers the network name, so a device can silently join
-the wrong router next door. `wifi_management` lets the user pick the router by
-its BSSID, joins only that one, verifies the BSSID the OS actually joined,
-remembers it, and reconnects with backoff when the link drops.
+A Flutter plugin that pins a device to a router by SSID **and BSSID**. On
+Android it joins only that router, checks the BSSID it actually joined, keeps
+it, and reconnects when the link drops. The router is saved only after that
+check passes, so a wrong join never becomes the remembered one.
+
+![Animated illustration. On the left, the headline "Join one exact router, even when ten share its name". On the right, an app log types "await manager.connectNew(router02)", then shows: scan found 3 routers named SSID001, a request for SSID001 at aa:bb:cc:00:00:02 only, joined aa:bb:cc:00:00:02 and the BSSID matches, saved and app traffic bound to this network. A card lands: pinned to SSID001 at :02, phase connected with isVerified true, stored only after the BSSID check passed, and if the link is lost it retries after 2, 4, 8, 16, then 30 seconds. Footnote: illustration of a typical Android setup, on iOS the join is best effort.](docs/hero.gif)
+
+## Sound familiar?
+
+- Every vehicle, room or kiosk broadcasts the same SSID, and the tablet joins
+  whichever one is loudest.
+- The display in one bus talks to the router in the bus parked next to it.
+- The OS says "connected". Nothing tells you it's the wrong BSSID.
+- The link drops, and someone has to walk over and pick the network in
+  Settings again.
+
+## Who it's for
+
+**For you if** your Flutter app runs on devices that must stay on one specific
+router among several with the same name: in-vehicle displays, kiosks, room
+panels, field tablets.
+
+**Not for you if:**
+
+- any Wi-Fi with internet will do. The OS already handles that.
+- you need a guarantee on iOS. iOS joins by SSID; the plugin detects and
+  reports a wrong BSSID there but can't prevent it.
+- your app needs the internet while pinned to a router that has none. On
+  Android the whole app's traffic goes through the pinned network.
+- you target Android 9 or older.
+
+![Animated illustration, before and after. Before: six cards pile up. Every bus broadcasts SSID001 and the tablet joins whichever is loudest. The display on bus 12 talks to the router in bus 14, parked next to it. The OS says connected and nothing says it is the wrong BSSID. The link drops at a stop and nobody reconnects it. Someone walks over and picks the network in Settings again. After a reboot the device only remembers the name. A wipe turns the label to After: an app log runs "await manager.start()", loads SSID001 at aa:bb:cc:00:00:02, requests that BSSID only, joins and verifies it, and ends on connected, isVerified true. Five outcomes appear: pick the router by BSSID from a scan, Android joins only that BSSID, every join is checked and a mismatch is released, the router is saved after the check and restored by start, and a lost link retries at 2, 4, 8, 16, then 30 seconds.](docs/before-after.gif)
+
+## How it works
+
+![Animated diagram of four steps, left to right. 1, scan: ScanWifi on Android, one row per BSSID, strongest signal first. 2, join one BSSID: connectNew with the config, Android uses WifiNetworkSpecifier, iOS joins by SSID. 3, highlighted, verify and save: read the BSSID actually joined, on a mismatch release it and report, on a match save the router. 4, stay on it: app traffic bound to the network on Android, a lost link retries from 2 to 30 seconds, start restores it on the next launch. Below, a loop line: link dropped? WifiManagement retries the stored router, one attempt at a time, until it verifies again.](docs/how-it-works.gif)
+
+1. **Scan** (Android). `ScanWifi` returns one row per BSSID, strongest first,
+   so routers that share an SSID stay separate.
+2. **Join one BSSID.** `connectNew(config)` asks Android for exactly that
+   SSID + BSSID with `WifiNetworkSpecifier`. iOS joins by SSID with
+   `NEHotspotConfiguration`.
+3. **Verify and save.** The plugin reads the BSSID the device actually joined.
+   A mismatch is released and reported as `WifiFailure.bssidMismatch`; a match
+   is saved through your `WifiConfigRepository`.
+4. **Stay on it.** On Android the app's traffic is bound to that network. A
+   lost link retries after 2, 4, 8, 16, then every 30 seconds, one attempt at a
+   time. On the next launch, `start()` reconnects to the stored router.
+
+## Quick start
+
+Add the dependency:
+
+```yaml
+dependencies:
+  wifi_management:
+    git: https://github.com/Solusi-Bejo/wifi_management
+```
+
+Do the [platform setup](#setup), then:
+
+```dart
+import 'package:wifi_management/wifi_management.dart';
+
+final manager = WifiManagement(
+  configRepository: InMemoryWifiConfigRepository(), // use real storage in production
+  wifiRepository: WifiRepositoryImpl(),
+);
+
+await manager.start();
+manager.states.listen((state) => print('${state.phase} ${state.isVerified}'));
+```
+
+The `example/` app scans, lets you pick a router, and shows the live state.
 
 ## Platform support
 

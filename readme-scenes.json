@@ -1,0 +1,94 @@
+{
+  "theme": {
+    "paper": "#EEF2F6",
+    "field": "#0E2A47",
+    "ink": "#0A1A2F",
+    "signal": "#6EE7B7",
+    "warn": "#F2A65A"
+  },
+  "scenes": [
+    {
+      "name": "hero",
+      "template": "hero",
+      "gif": "docs/hero.gif",
+      "still": "docs/hero.png",
+      "still_at": 7.6,
+      "seconds": 9,
+      "alt": "Animated illustration. On the left, the headline \"Join one exact router, even when ten share its name\". On the right, an app log types \"await manager.connectNew(router02)\", then shows: scan found 3 routers named SSID001, a request for SSID001 at aa:bb:cc:00:00:02 only, joined aa:bb:cc:00:00:02 and the BSSID matches, saved and app traffic bound to this network. A card lands: pinned to SSID001 at :02, phase connected with isVerified true, stored only after the BSSID check passed, and if the link is lost it retries after 2, 4, 8, 16, then 30 seconds. Footnote: illustration of a typical Android setup, on iOS the join is best effort.",
+      "data": {
+        "eyebrow": "wifi_management · Flutter plugin",
+        "title": "Join **one exact router**, even when ten share its name",
+        "subtitle": "Pick a router by its BSSID. Android joins only that one. The plugin checks the BSSID it actually joined, remembers it, and reconnects when the link drops.",
+        "app": "your app · state log",
+        "prompt": "await manager.connectNew(router02)",
+        "lines": [
+          "scan: 3 routers named SSID001",
+          "request: SSID001 at aa:bb:cc:00:00:02 only",
+          "joined aa:bb:cc:00:00:02, BSSID matches",
+          "saved, app traffic bound to this network"
+        ],
+        "result": {
+          "title": "Pinned to SSID001 · …:00:02",
+          "items": [
+            "phase: connected, isVerified: true",
+            "Stored only after the BSSID check passed",
+            { "text": "Link lost? Retry after 2, 4, 8, 16, then 30 s", "warn": true }
+          ]
+        },
+        "footnote": "Illustration of a typical Android setup. On iOS the join is **best effort**."
+      }
+    },
+    {
+      "name": "before-after",
+      "template": "before-after",
+      "gif": "docs/before-after.gif",
+      "seconds": 12,
+      "alt": "Animated illustration, before and after. Before: six cards pile up. Every bus broadcasts SSID001 and the tablet joins whichever is loudest. The display on bus 12 talks to the router in bus 14, parked next to it. The OS says connected and nothing says it is the wrong BSSID. The link drops at a stop and nobody reconnects it. Someone walks over and picks the network in Settings again. After a reboot the device only remembers the name. A wipe turns the label to After: an app log runs \"await manager.start()\", loads SSID001 at aa:bb:cc:00:00:02, requests that BSSID only, joins and verifies it, and ends on connected, isVerified true. Five outcomes appear: pick the router by BSSID from a scan, Android joins only that BSSID, every join is checked and a mismatch is released, the router is saved after the check and restored by start, and a lost link retries at 2, 4, 8, 16, then 30 seconds.",
+      "data": {
+        "title": "Ten routers, one SSID",
+        "time": "the depot at 7 am",
+        "caption": "Illustration of a typical fleet setup.",
+        "app": "your app · state log",
+        "before": [
+          { "tag": "same name", "text": "Every bus broadcasts SSID001. The tablet joins whichever is loudest." },
+          { "tag": "wrong router", "text": "The display on bus 12 talks to the router in bus 14, parked next to it." },
+          { "tag": "silent", "text": "The OS says connected. Nothing says it's the wrong BSSID." },
+          { "tag": "dropped", "text": "The link drops at a stop and nobody reconnects it." },
+          { "tag": "by hand", "text": "Someone walks over and picks the network in Settings again." },
+          { "tag": "forgotten", "text": "After a reboot the device only remembers the name." }
+        ],
+        "prompt": "await manager.start()",
+        "lines": [
+          "loaded SSID001 · aa:bb:cc:00:00:02",
+          "requested that BSSID only",
+          "joined, BSSID verified",
+          { "text": "connected · isVerified: true", "ok": true }
+        ],
+        "after": [
+          "Pick the router by BSSID from a scan.",
+          "Android joins only that BSSID.",
+          "Every join is checked. A mismatch is released.",
+          "Saved after the check, restored by `start()`.",
+          "A lost link retries at 2, 4, 8, 16, then 30 s."
+        ]
+      }
+    },
+    {
+      "name": "how-it-works",
+      "template": "how-it-works",
+      "gif": "docs/how-it-works.gif",
+      "seconds": 12,
+      "alt": "Animated diagram of four steps, left to right. 1, scan: ScanWifi on Android, one row per BSSID, strongest signal first. 2, join one BSSID: connectNew with the config, Android uses WifiNetworkSpecifier, iOS joins by SSID. 3, highlighted, verify and save: read the BSSID actually joined, on a mismatch release it and report, on a match save the router. 4, stay on it: app traffic bound to the network on Android, a lost link retries from 2 to 30 seconds, start restores it on the next launch. Below, a loop line: link dropped? WifiManagement retries the stored router, one attempt at a time, until it verifies again.",
+      "data": {
+        "title": "How it works",
+        "steps": [
+          { "title": "Scan", "items": ["`ScanWifi` (Android)", "One row per BSSID", "Strongest signal first"] },
+          { "title": "Join one BSSID", "items": ["`connectNew(config)`", "Android: `WifiNetworkSpecifier`", "iOS: joins by SSID"] },
+          { "title": "Verify and save", "highlight": true, "items": ["Read the BSSID joined", "Mismatch: release, report", "Match: save the router"] },
+          { "title": "Stay on it", "items": ["Traffic bound (Android)", "Lost link: 2 to 30 s backoff", "`start()` on next launch"] }
+        ],
+        "loop": "Link dropped? `WifiManagement` retries the stored router, one attempt at a time, until it verifies again."
+      }
+    }
+  ]
+}
