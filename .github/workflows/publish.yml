@@ -1,6 +1,14 @@
-# Publishes to pub.dev when a version tag is pushed. Requires automated
-# publishing to be enabled for this repository on pub.dev (package admin page)
-# after the first manual `dart pub publish`.
+# Publishes to pub.dev when a version tag (e.g. `0.2.0`) is pushed. Requires
+# automated publishing to be enabled on pub.dev (package admin page, tag
+# pattern `{{version}}`) after the first manual `flutter pub publish`.
+#
+# The reusable dart-lang workflow installs Dart only, which cannot resolve a
+# Flutter plugin, so this sets up both: setup-dart provides the pub.dev OIDC
+# credentials, flutter-action provides the SDK.
+#
+# Actions are pinned to commit SHAs: the publish job can mint a pub.dev upload
+# token, so a moved tag must not be able to inject code into it. Bump a pin by
+# replacing the SHA with the commit of the newer tag.
 name: Publish to pub.dev
 
 on:
@@ -8,8 +16,33 @@ on:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+*'
 
+permissions:
+  contents: read
+
 jobs:
+  # Last gate before an irreversible publish; holds no publish credentials.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
   publish:
+    needs: test
+    runs-on: ubuntu-latest
     permissions:
+      contents: read
       id-token: write # Required for authentication using OIDC
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dart-lang/setup-dart@2286a0c042b44434fe26d292bbce8d34f7ec662b # v1.8.2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart pub publish --force
